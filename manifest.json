@@ -1,11 +1,10 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
-	"isDesktopOnly": false
+	"id": "structured-context",
+	"name": "Structured Context",
+	"version": "0.1.0",
+	"minAppVersion": "1.0.0",
+	"description": "Keep your content clean and your thinking clear. Inline validation for schema-governed markdown content.",
+	"author": "Roger Barnes",
+	"authorUrl": "https://github.com/mindsocket/obsidian-structured-context",
+	"isDesktopOnly": true
 }

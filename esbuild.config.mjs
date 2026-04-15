@@ -1,6 +1,25 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from 'node:module';
+import { cpSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const configDir = dirname(fileURLToPath(import.meta.url));
+const apiEntry = require.resolve('structured-context/api');
+const sctxRoot = resolve(dirname(apiEntry), '..');
+
+const copyAssets = {
+	name: "copy-assets",
+	setup(build) {
+		build.onEnd(() => {
+			cpSync(resolve(sctxRoot, "schemas"), resolve(configDir, "dist/schemas"), { recursive: true });
+			cpSync("manifest.json", "dist/manifest.json");
+		});
+	},
+};
 
 const banner =
 `/*
@@ -12,6 +31,7 @@ if you want to view the source, please visit the github repository of this plugi
 const prod = (process.argv[2] === "production");
 
 const context = await esbuild.context({
+	plugins: [copyAssets],
 	banner: {
 		js: banner,
 	},
@@ -20,6 +40,7 @@ const context = await esbuild.context({
 	external: [
 		"obsidian",
 		"electron",
+
 		"@codemirror/autocomplete",
 		"@codemirror/collab",
 		"@codemirror/commands",
@@ -32,12 +53,13 @@ const context = await esbuild.context({
 		"@lezer/highlight",
 		"@lezer/lr",
 		...builtinModules],
+	platform: "node",
 	format: "cjs",
 	target: "es2018",
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
-	outfile: "main.js",
+	outfile: "dist/main.js",
 	minify: prod,
 });
 

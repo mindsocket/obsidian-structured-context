@@ -1,99 +1,105 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { FileSystemAdapter, Notice, Plugin, MarkdownView, TFile } from "obsidian";
+import { join } from "node:path";
+import { setBundledSchemasDir } from "structured-context/api";
+import { EditorView } from "@codemirror/view";
+import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
+import { Validator } from "./validator";
+import { setValidationResult, validationField } from "./editor-extension";
 
-// Remember to rename these classes and interfaces!
-
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class StructuredContextPlugin extends Plugin {
+	settings: PluginSettings;
+	private validator: Validator;
+	private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 	async onload() {
 		await this.loadSettings();
+		this.addSettingTab(new StructuredContextSettingTab(this.app, this));
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+		// Point to schemas bundled alongside this plugin
+		if (this.app.vault.adapter instanceof FileSystemAdapter && this.manifest.dir) {
+			const pluginDir = join(this.app.vault.adapter.getBasePath(), this.manifest.dir);
+			setBundledSchemasDir(join(pluginDir, "schemas"));
+		}
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
+		this.validator = new Validator(this.settings.configPath);
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+		this.registerEditorExtension([validationField]);
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", () => {
+				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (view?.file) {
+					this.validateFile(view.file, view);
 				}
-				return false;
-			}
-		});
+			})
+		);
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.registerEvent(
+			this.app.vault.on("modify", (file) => {
+				if (!(file instanceof TFile) || file.extension !== "md") return;
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
+				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (view?.file?.path !== file.path) return;
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+				const existing = this.debounceTimers.get(file.path);
+				if (existing) clearTimeout(existing);
 
+				const timer = setTimeout(() => {
+					this.debounceTimers.delete(file.path);
+					this.validateFile(file, view);
+				}, this.settings.debounceMs);
+
+				this.debounceTimers.set(file.path, timer);
+			})
+		);
+
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (activeView?.file) {
+			this.validateFile(activeView.file, activeView);
+		}
 	}
 
 	onunload() {
+		for (const timer of this.debounceTimers.values()) {
+			clearTimeout(timer);
+		}
+		this.debounceTimers.clear();
+	}
+
+	private async validateFile(file: TFile, view: MarkdownView) {
+		const adapter = this.app.vault.adapter;
+		const basePath = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
+		const absolutePath = basePath ? join(basePath, file.path) : file.path;
+
+		let result = null;
+		try {
+			result = await this.validator.validate(absolutePath);
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			new Notice(`Structured Context validation failed: ${msg}`);
+			console.error("[structured-context] Validation error:", e);
+			return;
+		}
+
+		const cmView = (view.editor as any).cm as EditorView | undefined;
+		if (!cmView) return;
+
+		cmView.dispatch({
+			effects: setValidationResult.of(result),
+		});
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			(await this.loadData()) as Partial<PluginSettings>
+		);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+		// Recreate validator with updated settings
+		this.validator = new Validator(this.settings.configPath);
 	}
 }

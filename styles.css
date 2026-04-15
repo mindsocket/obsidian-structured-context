@@ -1,8 +1,35 @@
-/*
+/* Structured Context plugin styles */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+/* Highlight a frontmatter line that has a validation error */
+.sctx-error-line {
+	background-color: rgba(var(--color-red-rgb), 0.08);
+}
 
-If your plugin does not need CSS, delete this file.
+/* Inline error message appended after a frontmatter property value */
+.sctx-inline-error {
+	color: var(--color-red);
+	font-size: 0.85em;
+	opacity: 0.85;
+	cursor: default;
+	user-select: none;
+}
 
-*/
+/* Block panel shown after the frontmatter closing --- for document-level errors */
+.sctx-error-panel {
+	border-left: 3px solid var(--color-red);
+	margin: 4px 0 8px 0;
+	padding: 6px 10px;
+	background-color: rgba(var(--color-red-rgb), 0.05);
+	border-radius: 0 4px 4px 0;
+	font-size: 0.85em;
+}
+
+.sctx-error-item {
+	color: var(--text-muted);
+	padding: 1px 0;
+}
+
+.sctx-error-item::before {
+	content: "⚠ ";
+	color: var(--color-red);
+}
