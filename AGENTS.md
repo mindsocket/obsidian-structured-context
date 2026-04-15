@@ -79,6 +79,19 @@ The `dist/` directory contains everything needed to run:
 
 This entire directory is copied to the vault on install.
 
+## Bundling approach and implications
+
+**Why CJS format**: Obsidian plugins require CommonJS (`format: "cjs"` in esbuild).
+
+**The challenge**: `structured-context` is an ESM library that uses `import.meta` for runtime path resolution. When bundled into CJS, `import.meta` becomes unavailable.
+
+**How we handle it**:
+1. esbuild bundles the ESM library into CJS (with suppressed warnings via `logOverride`)
+2. At plugin load time, `main.ts` calls `setBundledSchemasDir()` to explicitly override the schema path
+3. The library's fallback (`import.meta.url ? ... : ''`) handles the bundled case gracefully
+
+**Future**: When Obsidian supports ESM plugins, we can switch to `format: "esm"` and remove the runtime override.
+
 ## Testing changes
 
 1. Edit source files
