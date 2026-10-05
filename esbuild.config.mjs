@@ -1,7 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from 'node:module';
-import { appendFileSync, cpSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -10,6 +10,9 @@ const require = createRequire(import.meta.url);
 const configDir = dirname(fileURLToPath(import.meta.url));
 const apiEntry = require.resolve('structured-context/api');
 const sctxRoot = resolve(dirname(apiEntry), '..');
+// PROTOTYPE: map view definitions are read at runtime from the navigator app's checkout; definition
+// discovery and distribution are undesigned.
+const mapViewsDir = resolve(realpathSync(resolve(configDir, "node_modules/structured-context-navigator")), "map-views");
 
 /** Every file under dir, as { path relative to dir: contents }. */
 function readTree(dir, base = dir, out = {}) {
@@ -40,7 +43,7 @@ const copyAssets = {
 	setup(build) {
 		build.onEnd(() => {
 			cpSync("manifest.json", "dist/manifest.json");
-			// Plugin styles plus the prebuilt map-views stylesheet (run `bun run build:css` in the navigator app first).
+			// Plugin styles plus the prebuilt map-views stylesheet (run `bun run build:map-views` in the navigator app first).
 			const mapViewsCss = readFileSync(require.resolve("structured-context-navigator/map-views/styles.css"), "utf8");
 			writeFileSync("dist/styles.css", `${readFileSync("styles.css", "utf8")}\n${mapViewsCss}`);
 		});
@@ -123,16 +126,16 @@ const context = await esbuild.context({
 		"@lezer/highlight",
 		"@lezer/lr",
 		...builtinModules],
-	// PROTOTYPE: map-views is consumed as TS source through a file: dependency, so pin shared packages to this
-	// plugin's copies (avoiding a second React) and mirror the navigator's structured-context/graph alias.
+	// PROTOTYPE: map-views comes through a file: dependency, whose imports resolve from the navigator's own
+	// node_modules. Pin React to this plugin's copy so the bundle has a single React instance.
 	alias: {
 		"react": resolve(configDir, "node_modules/react"),
 		"react-dom": resolve(configDir, "node_modules/react-dom"),
-		"structured-context/graph": resolve(sctxRoot, "dist/space-graph.js"),
 	},
-	nodePaths: [resolve(configDir, "node_modules")],
-	jsx: "automatic",
-	define: { "process.env.NODE_ENV": JSON.stringify(prod ? "production" : "development") },
+	define: {
+		"process.env.NODE_ENV": JSON.stringify(prod ? "production" : "development"),
+		SCTX_MAP_VIEWS_DIR: JSON.stringify(mapViewsDir),
+	},
 	platform: "node",
 	format: "cjs",
 	target: "es2020",
