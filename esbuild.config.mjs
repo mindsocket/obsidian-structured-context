@@ -1,7 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from 'node:module';
-import { appendFileSync, cpSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { appendFileSync, cpSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -40,7 +40,9 @@ const copyAssets = {
 	setup(build) {
 		build.onEnd(() => {
 			cpSync("manifest.json", "dist/manifest.json");
-			cpSync("styles.css", "dist/styles.css");
+			// Plugin styles plus the prebuilt map-views stylesheet (run `bun run build:css` in the navigator app first).
+			const mapViewsCss = readFileSync(require.resolve("structured-context-navigator/map-views/styles.css"), "utf8");
+			writeFileSync("dist/styles.css", `${readFileSync("styles.css", "utf8")}\n${mapViewsCss}`);
 		});
 	},
 };
@@ -121,6 +123,16 @@ const context = await esbuild.context({
 		"@lezer/highlight",
 		"@lezer/lr",
 		...builtinModules],
+	// PROTOTYPE: map-views is consumed as TS source through a file: dependency, so pin shared packages to this
+	// plugin's copies (avoiding a second React) and mirror the navigator's structured-context/graph alias.
+	alias: {
+		"react": resolve(configDir, "node_modules/react"),
+		"react-dom": resolve(configDir, "node_modules/react-dom"),
+		"structured-context/graph": resolve(sctxRoot, "dist/space-graph.js"),
+	},
+	nodePaths: [resolve(configDir, "node_modules")],
+	jsx: "automatic",
+	define: { "process.env.NODE_ENV": JSON.stringify(prod ? "production" : "development") },
 	platform: "node",
 	format: "cjs",
 	target: "es2020",
