@@ -11,9 +11,6 @@
 		"noImplicitReturns": true,
 		"moduleResolution": "bundler",
 		"jsx": "react-jsx",
-		"paths": {
-			"structured-context/graph": ["../node_modules/structured-context/dist/space-graph"]
-		},
 		"importHelpers": true,
 		"noUncheckedIndexedAccess": true,
 		"isolatedModules": true,

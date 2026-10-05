@@ -89,7 +89,7 @@ export default class StructuredContextPlugin extends Plugin {
 			return;
 		}
 
-		const cmView = (view.editor as unknown).cm as EditorView | undefined;
+		const cmView = (view.editor as unknown as { cm?: EditorView }).cm;
 		if (!cmView) return;
 
 		cmView.dispatch({
