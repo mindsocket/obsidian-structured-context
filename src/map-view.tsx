@@ -91,7 +91,14 @@ function MapViewHost({ config, onOpenSource }: { config: Config; onOpenSource: (
 		if (!spaceName) return;
 		setData(undefined);
 		setError(undefined);
-		loadSpaceData(spaceName, config).then(setData, (e) => setError(e instanceof Error ? e.message : String(e)));
+		let current = true;
+		loadSpaceData(spaceName, config).then(
+			(d) => current && setData(d),
+			(e) => current && setError(e instanceof Error ? e.message : String(e)),
+		);
+		return () => {
+			current = false;
+		};
 	}, [config, spaceName]);
 
 	const available = mapViewsForSchema(definitions, data?.schemaId);
