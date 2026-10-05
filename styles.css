@@ -33,3 +33,13 @@
 	content: "⚠ ";
 	color: var(--color-red);
 }
+
+/* Map views: map-views theme variables onto Obsidian's theme */
+.sctx-map-view {
+	--mv-color-surface: var(--background-primary);
+	--mv-color-card: var(--background-secondary);
+	--mv-color-ink: var(--text-normal);
+	--mv-color-muted: var(--text-muted);
+	--mv-color-edge: var(--background-modifier-border);
+	--mv-color-accent: var(--interactive-accent);
+}

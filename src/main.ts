@@ -5,6 +5,7 @@ import { EditorView } from "@codemirror/view";
 import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
 import { Validator } from "./validator";
 import { setValidationResult, validationField } from "./editor-extension";
+import { MAP_VIEW_TYPE, MapViewPane } from "./map-view";
 
 export default class StructuredContextPlugin extends Plugin {
 	settings: PluginSettings;
@@ -25,11 +26,18 @@ export default class StructuredContextPlugin extends Plugin {
 
 		this.registerEditorExtension([validationField]);
 
+		this.registerView(MAP_VIEW_TYPE, (leaf) => new MapViewPane(leaf));
+		this.addCommand({
+			id: "open-map-view",
+			name: "Open map view",
+			callback: () => this.app.workspace.getLeaf("tab").setViewState({ type: MAP_VIEW_TYPE, active: true }),
+		});
+
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", () => {
 				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (view?.file) {
-					this.validateFile(view.file, view);
+					void this.validateFile(view.file, view);
 				}
 			})
 		);
@@ -46,7 +54,7 @@ export default class StructuredContextPlugin extends Plugin {
 
 				const timer = setTimeout(() => {
 					this.debounceTimers.delete(file.path);
-					this.validateFile(file, view);
+					void this.validateFile(file, view);
 				}, this.settings.debounceMs);
 
 				this.debounceTimers.set(file.path, timer);
@@ -55,7 +63,7 @@ export default class StructuredContextPlugin extends Plugin {
 
 		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (activeView?.file) {
-			this.validateFile(activeView.file, activeView);
+			void this.validateFile(activeView.file, activeView);
 		}
 	}
 
@@ -81,7 +89,7 @@ export default class StructuredContextPlugin extends Plugin {
 			return;
 		}
 
-		const cmView = (view.editor as any).cm as EditorView | undefined;
+		const cmView = (view.editor as unknown).cm as EditorView | undefined;
 		if (!cmView) return;
 
 		cmView.dispatch({
