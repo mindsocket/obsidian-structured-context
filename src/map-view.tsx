@@ -10,6 +10,7 @@ import {
 	type ParameterValues,
 	parseMapViewDefinition,
 	type SpaceData,
+	selectionFilter,
 } from "structured-context-navigator/map-views/core";
 import { MapView, ParameterControls } from "structured-context-navigator/map-views/layouts";
 
@@ -121,9 +122,10 @@ function loadMapViews(): MapViewDefinition[] {
 		.map((file) => parseMapViewDefinition(basename(file, ".json5"), readFileSync(join(dir, file), "utf8")));
 }
 
-async function loadSpaceData(spaceName: string, config: Config): Promise<SpaceData> {
+/** Load a space, narrowed by a filter (a view name or expression) when one is given. */
+async function loadSpaceData(spaceName: string, config: Config, filter?: string): Promise<SpaceData> {
 	const context = createSpaceContext(spaceName, config);
-	const graph = await assembleSpaceGraph(context);
+	const graph = await assembleSpaceGraph(context, { filter });
 	return { space: spaceName, schemaId: context.schema.$id, hierarchy: graph.hierarchy, nodes: [...graph.nodes.values()] };
 }
 
@@ -139,7 +141,9 @@ function MapViewHost({
 	onOpenSource: (absolutePath: string) => void;
 }) {
 	const spaceName = state.space ?? "";
+	// The whole space, for its schema; then the space as the map view's filter selects it.
 	const [data, setData] = useState<SpaceData>();
+	const [selection, setSelection] = useState<{ filter: string; data: SpaceData }>();
 	const [{ definitions, definitionsError }] = useState(() => {
 		try {
 			return { definitions: loadMapViews(), definitionsError: undefined };
@@ -166,6 +170,23 @@ function MapViewHost({
 	const available = mapViewsForSchema(definitions, data?.schemaId);
 	const definition = available.find((d) => d.name === state.mapView) ?? available[0];
 	const values = definition ? state.values?.[definition.name] : undefined;
+	const filter = definition ? selectionFilter(definition, values) : undefined;
+
+	useEffect(() => {
+		setSelection(undefined);
+		if (!spaceName || !filter) return;
+		let current = true;
+		loadSpaceData(spaceName, config, filter).then(
+			(d) => current && setSelection({ filter, data: d }),
+			(e) => current && setError(e instanceof Error ? e.message : String(e)),
+		);
+		return () => {
+			current = false;
+		};
+	}, [config, spaceName, filter]);
+	// Unfiltered data stands in only for map views without a filter, never for a pending selection.
+	const shown = filter ? (selection?.filter === filter ? selection.data : undefined) : data;
+
 	const setValue = (name: string, value: unknown) => {
 		if (!definition) return;
 		onStateChange({
@@ -220,7 +241,7 @@ function MapViewHost({
 			{error && <p className="sctx-map-view-error">{error}</p>}
 			{data && !definition && <p>No map view applies to this space's schema.</p>}
 			<div className="sctx-map-view-body">
-				{data && definition && <MapView definition={definition} data={data} values={values} onNodeSelect={openNode} />}
+				{shown && definition && <MapView definition={definition} data={shown} values={values} onNodeSelect={openNode} />}
 			</div>
 		</div>
 	);
