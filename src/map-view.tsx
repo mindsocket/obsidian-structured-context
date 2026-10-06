@@ -30,6 +30,8 @@ type PaneState = {
 export class MapViewPane extends ItemView {
 	private root: Root | null = null;
 	private state: PaneState = {};
+	// Loaded once: the host reloads the space whenever the config object changes.
+	private config: Config | null = null;
 
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
@@ -49,6 +51,8 @@ export class MapViewPane extends ItemView {
 
 	async onOpen() {
 		this.contentEl.addClass("sctx-map-view");
+		// PROTOTYPE: always uses the system config; should follow the plugin's config settings.
+		this.config = loadConfig();
 		this.root = createRoot(this.contentEl);
 		this.renderHost();
 	}
@@ -64,10 +68,10 @@ export class MapViewPane extends ItemView {
 	}
 
 	private renderHost() {
-		// PROTOTYPE: always uses the system config; should follow the plugin's config settings.
+		if (!this.config) return;
 		this.root?.render(
 			<MapViewHost
-				config={loadConfig()}
+				config={this.config}
 				state={this.state}
 				onStateChange={(state) => {
 					this.state = state;
@@ -196,7 +200,7 @@ function MapViewHost({
 					</select>
 				)}
 			</div>
-			{definition && (
+			{definition && definition.parameters.length > 0 && (
 				<div className="sctx-map-view-parameters">
 					<ParameterControls parameters={definition.parameters} values={values ?? {}} onChange={setValue} />
 				</div>
