@@ -1,4 +1,4 @@
-import { FileSystemAdapter, ItemView, type WorkspaceLeaf } from "obsidian";
+import { FileSystemAdapter, ItemView, Notice, type WorkspaceLeaf } from "obsidian";
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, isAbsolute, join, relative } from "node:path";
 import { useEffect, useState } from "react";
@@ -49,13 +49,16 @@ export class MapViewPane extends ItemView {
 		this.root = null;
 	}
 
-	/** Open a node's source file if it lives inside this vault. */
+	/** Open a node's source file in a new tab, if it lives inside this vault. */
 	private openSource(absolutePath: string) {
 		const adapter = this.app.vault.adapter;
-		if (!(adapter instanceof FileSystemAdapter)) return;
-		const vaultPath = relative(adapter.getBasePath(), absolutePath);
-		if (vaultPath.startsWith("..") || isAbsolute(vaultPath)) return;
-		void this.app.workspace.openLinkText(vaultPath, "", false);
+		const vaultPath = adapter instanceof FileSystemAdapter ? relative(adapter.getBasePath(), absolutePath) : undefined;
+		if (vaultPath === undefined || vaultPath.startsWith("..") || isAbsolute(vaultPath)) {
+			new Notice(`Not in this vault: ${absolutePath}`);
+			return;
+		}
+		// A new tab, so the map view stays open.
+		void this.app.workspace.openLinkText(vaultPath, "", "tab");
 	}
 }
 
