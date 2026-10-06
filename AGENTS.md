@@ -97,8 +97,19 @@ This entire directory is copied to the vault on install.
 1. Edit source files
 2. Run `npm run build`
 3. Run `npm run install-to-vault`
-4. Reload Obsidian plugin (Settings → Community plugins → reload)
+4. Reload the plugin: `obsidian plugin:reload id=structured-context` (or Settings → Community plugins)
 5. Open a markdown file in a configured space
+
+### Verifying in the running app (agents)
+
+The `obsidian` CLI drives the running app, so changes can be checked without asking the user to click around:
+
+- `obsidian eval code='...'` runs JavaScript in the app and prints the result. Use it to query the DOM, `app.workspace`, computed styles and hit tests (`document.elementFromPoint`). Return a `JSON.stringify(...)` string. Async code (`(async () => ...)()`) returns nothing, so split a sequence into separate calls and `sleep` between them.
+- React-controlled `<select>`s need the native setter plus a bubbling `change` event: `Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(sel, v); sel.dispatchEvent(new Event("change", { bubbles: true }))`.
+- `obsidian dev:errors` / `dev:console` show captured errors and logs, and `dev:css selector=... prop=...` shows which rules set a property, with their sources. That's how host CSS overriding plugin styles is diagnosed.
+- `obsidian dev:screenshot path=...` is only trustworthy while the Obsidian window is visible. In the background (`document.visibilityState === "hidden"`) the app paints no frames, so screenshots are stale, and `ResizeObserver` and `requestAnimationFrame` callbacks don't run. Rely on DOM measurements, or ask the user to bring Obsidian forward.
+- Clicks that open notes change the user's workspace. Close any tab you opened (`app.workspace.activeLeaf.detach()`) and restore focus to the view under test.
+- `install-to-vault` replaces the installed plugin folder. Check it for a `data.json` (saved settings) first.
 
 ## Further reading
 
