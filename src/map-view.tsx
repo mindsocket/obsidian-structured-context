@@ -62,7 +62,7 @@ export class MapViewPane extends ItemView {
 	}
 
 	async setState(state: unknown, result: ViewStateResult) {
-		this.state = (state ?? {}) as PaneState;
+		this.state = toPaneState(state);
 		this.renderHost();
 		await super.setState(state, result);
 	}
@@ -99,6 +99,17 @@ export class MapViewPane extends ItemView {
 		// A new tab, so the map view stays open.
 		void this.app.workspace.openLinkText(vaultPath, "", "tab");
 	}
+}
+
+/** Keep only well-formed fields of saved view state; parameter values are checked when resolved. */
+function toPaneState(state: unknown): PaneState {
+	if (typeof state !== "object" || state === null) return {};
+	const { space, mapView, values } = state as Record<string, unknown>;
+	return {
+		...(typeof space === "string" && { space }),
+		...(typeof mapView === "string" && { mapView }),
+		...(typeof values === "object" && values !== null && { values: values as PaneState["values"] }),
+	};
 }
 
 /** Read map view definitions from the definitions directory injected at build time. */
@@ -202,7 +213,7 @@ function MapViewHost({
 			</div>
 			{definition && definition.parameters.length > 0 && (
 				<div className="sctx-map-view-parameters">
-					<ParameterControls parameters={definition.parameters} values={values ?? {}} onChange={setValue} />
+					<ParameterControls definition={definition} values={values ?? {}} onChange={setValue} />
 				</div>
 			)}
 			{definitionsError && <p className="sctx-map-view-error">{definitionsError}</p>}
