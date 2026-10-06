@@ -1,4 +1,4 @@
-import { FileSystemAdapter, ItemView, Notice, type WorkspaceLeaf } from "obsidian";
+import { FileSystemAdapter, ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, isAbsolute, join, relative } from "node:path";
 import { useEffect, useState } from "react";
@@ -7,19 +7,29 @@ import { assembleSpaceGraph, createSpaceContext, loadConfig, type Config, type S
 import {
 	type MapViewDefinition,
 	mapViewsForSchema,
+	type ParameterValues,
 	parseMapViewDefinition,
 	type SpaceData,
 } from "structured-context-navigator/map-views/core";
-import { MapView } from "structured-context-navigator/map-views/layouts";
+import { MapView, ParameterControls } from "structured-context-navigator/map-views/layouts";
 
 /** Absolute path of the map view definitions directory, injected by the build (esbuild `define`). */
 declare const SCTX_MAP_VIEWS_DIR: string;
 
 export const MAP_VIEW_TYPE = "structured-context-map-view";
 
+/** What the pane shows, kept in Obsidian's view state so it survives reloads with the workspace. */
+type PaneState = {
+	space?: string;
+	mapView?: string;
+	/** Parameter values per map view name. */
+	values?: Record<string, ParameterValues>;
+};
+
 /** Obsidian pane hosting map views for a space chosen from the structured-context config. */
 export class MapViewPane extends ItemView {
 	private root: Root | null = null;
+	private state: PaneState = {};
 
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
@@ -40,8 +50,33 @@ export class MapViewPane extends ItemView {
 	async onOpen() {
 		this.contentEl.addClass("sctx-map-view");
 		this.root = createRoot(this.contentEl);
+		this.renderHost();
+	}
+
+	getState(): Record<string, unknown> {
+		return { ...super.getState(), ...this.state };
+	}
+
+	async setState(state: unknown, result: ViewStateResult) {
+		this.state = (state ?? {}) as PaneState;
+		this.renderHost();
+		await super.setState(state, result);
+	}
+
+	private renderHost() {
 		// PROTOTYPE: always uses the system config; should follow the plugin's config settings.
-		this.root.render(<MapViewHost config={loadConfig()} onOpenSource={(path) => this.openSource(path)} />);
+		this.root?.render(
+			<MapViewHost
+				config={loadConfig()}
+				state={this.state}
+				onStateChange={(state) => {
+					this.state = state;
+					this.renderHost();
+					this.app.workspace.requestSaveLayout();
+				}}
+				onOpenSource={(path) => this.openSource(path)}
+			/>,
+		);
 	}
 
 	async onClose() {
@@ -77,9 +112,18 @@ async function loadSpaceData(spaceName: string, config: Config): Promise<SpaceDa
 	return { space: spaceName, schemaId: context.schema.$id, hierarchy: graph.hierarchy, nodes: [...graph.nodes.values()] };
 }
 
-function MapViewHost({ config, onOpenSource }: { config: Config; onOpenSource: (absolutePath: string) => void }) {
-	const [spaceName, setSpaceName] = useState("");
-	const [mapViewName, setMapViewName] = useState("");
+function MapViewHost({
+	config,
+	state,
+	onStateChange,
+	onOpenSource,
+}: {
+	config: Config;
+	state: PaneState;
+	onStateChange: (state: PaneState) => void;
+	onOpenSource: (absolutePath: string) => void;
+}) {
+	const spaceName = state.space ?? "";
 	const [data, setData] = useState<SpaceData>();
 	const [{ definitions, definitionsError }] = useState(() => {
 		try {
@@ -91,9 +135,9 @@ function MapViewHost({ config, onOpenSource }: { config: Config; onOpenSource: (
 	const [error, setError] = useState<string>();
 
 	useEffect(() => {
-		if (!spaceName) return;
 		setData(undefined);
 		setError(undefined);
+		if (!spaceName) return;
 		let current = true;
 		loadSpaceData(spaceName, config).then(
 			(d) => current && setData(d),
@@ -105,7 +149,15 @@ function MapViewHost({ config, onOpenSource }: { config: Config; onOpenSource: (
 	}, [config, spaceName]);
 
 	const available = mapViewsForSchema(definitions, data?.schemaId);
-	const definition = available.find((d) => d.name === mapViewName) ?? available[0];
+	const definition = available.find((d) => d.name === state.mapView) ?? available[0];
+	const values = definition ? state.values?.[definition.name] : undefined;
+	const setValue = (name: string, value: unknown) => {
+		if (!definition) return;
+		onStateChange({
+			...state,
+			values: { ...state.values, [definition.name]: { ...values, [name]: value } },
+		});
+	};
 
 	const spacePath = config.spaces.find((s) => s.name === spaceName)?.path;
 	const openNode = (node: SpaceNode) => {
@@ -116,7 +168,12 @@ function MapViewHost({ config, onOpenSource }: { config: Config; onOpenSource: (
 	return (
 		<div className="sctx-map-view-host">
 			<div className="sctx-map-view-toolbar">
-				<select className="dropdown" value={spaceName} onChange={(e) => setSpaceName(e.target.value)} aria-label="Space">
+				<select
+					className="dropdown"
+					value={spaceName}
+					onChange={(e) => onStateChange({ ...state, space: e.target.value, mapView: undefined })}
+					aria-label="Space"
+				>
 					<option value="">Choose a space…</option>
 					{config.spaces.map((s) => (
 						<option key={s.name} value={s.name}>
@@ -128,7 +185,7 @@ function MapViewHost({ config, onOpenSource }: { config: Config; onOpenSource: (
 					<select
 						className="dropdown"
 						value={definition?.name}
-						onChange={(e) => setMapViewName(e.target.value)}
+						onChange={(e) => onStateChange({ ...state, mapView: e.target.value })}
 						aria-label="Map view"
 					>
 						{available.map((d) => (
@@ -139,11 +196,16 @@ function MapViewHost({ config, onOpenSource }: { config: Config; onOpenSource: (
 					</select>
 				)}
 			</div>
+			{definition && (
+				<div className="sctx-map-view-parameters">
+					<ParameterControls parameters={definition.parameters} values={values ?? {}} onChange={setValue} />
+				</div>
+			)}
 			{definitionsError && <p className="sctx-map-view-error">{definitionsError}</p>}
 			{error && <p className="sctx-map-view-error">{error}</p>}
 			{data && !definition && <p>No map view applies to this space's schema.</p>}
 			<div className="sctx-map-view-body">
-				{data && definition && <MapView definition={definition} data={data} onNodeSelect={openNode} />}
+				{data && definition && <MapView definition={definition} data={data} values={values} onNodeSelect={openNode} />}
 			</div>
 		</div>
 	);

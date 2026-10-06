@@ -56,6 +56,10 @@
 	padding-bottom: var(--size-4-2);
 }
 
+.sctx-map-view-parameters {
+	padding-bottom: var(--size-4-2);
+}
+
 .sctx-map-view-body {
 	flex: 1;
 	min-height: 0;
