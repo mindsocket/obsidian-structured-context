@@ -1,15 +1,135 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, AbstractInputSuggest, Modal, Notice, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
 import type StructuredContextPlugin from "./main";
 
+export type ConfigMode = "builtin" | "custom" | "system";
+
+export interface SpaceSetting {
+	name: string;
+	path: string;    // vault-relative
+	schema?: string; // vault-relative, optional
+}
+
 export interface PluginSettings {
-	configPath: string;
+	configMode: ConfigMode;
+	spaces: SpaceSetting[];  // used when configMode === "builtin"
+	configPath: string;      // used when configMode === "custom"
 	debounceMs: number;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
+	configMode: "builtin",
+	spaces: [],
 	configPath: "",
 	debounceMs: 1500,
 };
+
+class VaultFolderSuggest extends AbstractInputSuggest<TFolder> {
+	getSuggestions(query: string): TFolder[] {
+		const lq = query.toLowerCase();
+		return this.app.vault.getAllLoadedFiles()
+			.filter((f): f is TFolder => f instanceof TFolder && f.path.toLowerCase().includes(lq))
+			.slice(0, 50);
+	}
+
+	renderSuggestion(folder: TFolder, el: HTMLElement): void {
+		el.setText(folder.path);
+	}
+
+	selectSuggestion(folder: TFolder, _evt: MouseEvent | KeyboardEvent): void {
+		this.setValue(folder.path);
+		this.close();
+	}
+}
+
+class VaultFileSuggest extends AbstractInputSuggest<TFile> {
+	getSuggestions(query: string): TFile[] {
+		const lq = query.toLowerCase();
+		return this.app.vault.getAllLoadedFiles()
+			.filter((f): f is TFile => f instanceof TFile && f.path.toLowerCase().includes(lq))
+			.slice(0, 50);
+	}
+
+	renderSuggestion(file: TFile, el: HTMLElement): void {
+		el.setText(file.path);
+	}
+
+	selectSuggestion(file: TFile, _evt: MouseEvent | KeyboardEvent): void {
+		this.setValue(file.path);
+		this.close();
+	}
+}
+
+class SpaceEditModal extends Modal {
+	private space: SpaceSetting;
+	private readonly isNew: boolean;
+	private readonly onSubmit: (space: SpaceSetting) => void;
+
+	constructor(app: App, space: SpaceSetting | null, onSubmit: (space: SpaceSetting) => void) {
+		super(app);
+		this.isNew = space === null;
+		this.space = space ? { ...space } : { name: "", path: "" };
+		this.onSubmit = onSubmit;
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.createEl("h3", { text: this.isNew ? "Add space" : "Edit space" });
+
+		new Setting(contentEl)
+			.setName("Name")
+			.setDesc("Unique identifier: lowercase letters, numbers, hyphens, underscores")
+			.addText(text => text
+				.setValue(this.space.name)
+				.onChange(value => { this.space.name = value; })
+			);
+
+		new Setting(contentEl)
+			.setName("Path")
+			.setDesc("Vault-relative path to the space directory")
+			.addText(text => {
+				text.setValue(this.space.path).onChange(value => { this.space.path = value; });
+				new VaultFolderSuggest(this.app, text.inputEl);
+			});
+
+		new Setting(contentEl)
+			.setName("Schema")
+			.setDesc("Vault-relative path to schema file (optional, defaults to the bundled strategy_general.json)")
+			.addText(text => {
+				text.setValue(this.space.schema ?? "").onChange(value => {
+					this.space.schema = value.trim() || undefined;
+				});
+				new VaultFileSuggest(this.app, text.inputEl);
+			});
+
+		new Setting(contentEl)
+			.addButton(btn => btn
+				.setButtonText("Save")
+				.setCta()
+				.onClick(() => this.submit())
+			)
+			.addButton(btn => btn
+				.setButtonText("Cancel")
+				.onClick(() => this.close())
+			);
+	}
+
+	private submit(): void {
+		if (!/^[a-z0-9_-]+$/.test(this.space.name)) {
+			new Notice("Space name must only contain lowercase letters, numbers, hyphens, and underscores.");
+			return;
+		}
+		if (!this.space.path.trim()) {
+			new Notice("Path is required.");
+			return;
+		}
+		this.onSubmit({ ...this.space });
+		this.close();
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
 
 export class StructuredContextSettingTab extends PluginSettingTab {
 	plugin: StructuredContextPlugin;
@@ -22,42 +142,122 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "Structured Context" });
 		containerEl.createEl("p", {
-			text: "Validates your structured markdown content against its schema and shows inline hints as you write.",
+			text: "Validates your structured Markdown content against its schema and shows inline hints as you write.",
 			cls: "setting-item-description",
 		});
 
 		new Setting(containerEl)
-			.setName("Config file path")
-			.setDesc(
-				"Path to your sctx config.json. Leave blank to use default discovery (SCTX_CONFIG env var or config.json in standard locations)."
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder("/path/to/config.json")
-					.setValue(this.plugin.settings.configPath)
-					.onChange(async (value) => {
-						this.plugin.settings.configPath = value;
-						await this.plugin.saveSettings();
-					})
+			.setName("Config source")
+			.setDesc("Where to load the space configuration from.")
+			.addDropdown(drop => drop
+				.addOption("builtin", "Built-in (manage spaces here)")
+				.addOption("custom", "Custom config file")
+				.addOption("system", "System config (auto-discover)")
+				.setValue(this.plugin.settings.configMode)
+				.onChange(async (value: string) => {
+					this.plugin.settings.configMode = value as ConfigMode;
+					await this.plugin.saveSettings();
+					this.display();
+				})
 			);
+
+		const { configMode } = this.plugin.settings;
+
+		if (configMode === "builtin") {
+			this.renderBuiltinSection(containerEl);
+		} else if (configMode === "custom") {
+			this.renderCustomSection(containerEl);
+		} else {
+			this.renderSystemSection(containerEl);
+		}
 
 		new Setting(containerEl)
 			.setName("Validation debounce (ms)")
-			.setDesc(
-				"How long to wait after saving before re-validating. Increase if validation feels slow on large content sets."
-			)
-			.addText((text) =>
-				text
-					.setValue(String(this.plugin.settings.debounceMs))
-					.onChange(async (value) => {
-						const n = Number(value);
-						if (Number.isInteger(n) && n >= 0) {
-							this.plugin.settings.debounceMs = n;
-							await this.plugin.saveSettings();
-						}
-					})
+			.setDesc("How long to wait after saving before re-validating. Increase if validation feels slow on large content sets.")
+			.addText(text => text
+				.setValue(String(this.plugin.settings.debounceMs))
+				.onChange(async value => {
+					const n = Number(value);
+					if (Number.isInteger(n) && n >= 0) {
+						this.plugin.settings.debounceMs = n;
+						await this.plugin.saveSettings();
+					}
+				})
 			);
+	}
+
+	private renderBuiltinSection(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName("Spaces").setHeading();
+
+		const { spaces } = this.plugin.settings;
+
+		if (spaces.length === 0) {
+			containerEl.createEl("p", {
+				text: "No spaces configured. Add a space to start validating.",
+				cls: "setting-item-description",
+			});
+		} else {
+			for (let i = 0; i < spaces.length; i++) {
+				const space = spaces[i];
+				if (!space) continue;
+				const desc = space.schema ? `${space.path} · schema: ${space.schema}` : space.path;
+				new Setting(containerEl)
+					.setName(space.name)
+					.setDesc(desc)
+					.addExtraButton(btn => btn
+						.setIcon("pencil")
+						.setTooltip("Edit")
+						.onClick(() => this.openSpaceModal(i))
+					)
+					.addExtraButton(btn => btn
+						.setIcon("trash")
+						.setTooltip("Remove")
+						.onClick(async () => {
+							this.plugin.settings.spaces.splice(i, 1);
+							await this.plugin.saveSettings();
+							this.display();
+						})
+					);
+			}
+		}
+
+		new Setting(containerEl)
+			.addButton(btn => btn
+				.setButtonText("Add space")
+				.onClick(() => this.openSpaceModal(null))
+			);
+	}
+
+	private renderCustomSection(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName("Config file path")
+			.setDesc("Path to your sctx config.json.")
+			.addText(text => text
+				.setPlaceholder("/path/to/config.json")
+				.setValue(this.plugin.settings.configPath)
+				.onChange(async value => {
+					this.plugin.settings.configPath = value;
+					await this.plugin.saveSettings();
+				})
+			);
+	}
+
+	private renderSystemSection(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName("System config")
+			.setDesc("Uses the SCTX_CONFIG environment variable, or config.json in the standard XDG config location (~/.config/structured-context/config.json).");
+	}
+
+	private openSpaceModal(index: number | null): void {
+		const existing = index !== null ? (this.plugin.settings.spaces[index] ?? null) : null;
+		new SpaceEditModal(this.app, existing, space => {
+			if (index !== null) {
+				this.plugin.settings.spaces[index] = space;
+			} else {
+				this.plugin.settings.spaces.push(space);
+			}
+			void this.plugin.saveSettings().then(() => this.display());
+		}).open();
 	}
 }

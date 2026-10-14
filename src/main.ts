@@ -1,10 +1,13 @@
 import { FileSystemAdapter, Notice, Plugin, MarkdownView, TFile } from "obsidian";
 import { join } from "node:path";
-import { setBundledSchemasDir } from "structured-context/api";
+import { loadConfig, setBundledSchemasDir, setConfigPath, type Config } from "structured-context/api";
 import { EditorView } from "@codemirror/view";
 import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
 import { Validator } from "./validator";
 import { setValidationResult, validationField } from "./editor-extension";
+
+/** Bundled schema used for built-in spaces that don't set one; structured-context requires an explicit schema. */
+const DEFAULT_SCHEMA = "strategy_general.json";
 
 export default class StructuredContextPlugin extends Plugin {
 	settings: PluginSettings;
@@ -21,7 +24,7 @@ export default class StructuredContextPlugin extends Plugin {
 			setBundledSchemasDir(join(pluginDir, "schemas"));
 		}
 
-		this.validator = new Validator(this.settings.configPath);
+		this.validator = new Validator(this.buildConfig());
 
 		this.registerEditorExtension([validationField]);
 
@@ -29,7 +32,7 @@ export default class StructuredContextPlugin extends Plugin {
 			this.app.workspace.on("active-leaf-change", () => {
 				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (view?.file) {
-					this.validateFile(view.file, view);
+					void this.validateFile(view.file, view);
 				}
 			})
 		);
@@ -46,7 +49,7 @@ export default class StructuredContextPlugin extends Plugin {
 
 				const timer = setTimeout(() => {
 					this.debounceTimers.delete(file.path);
-					this.validateFile(file, view);
+					void this.validateFile(file, view);
 				}, this.settings.debounceMs);
 
 				this.debounceTimers.set(file.path, timer);
@@ -55,7 +58,7 @@ export default class StructuredContextPlugin extends Plugin {
 
 		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (activeView?.file) {
-			this.validateFile(activeView.file, activeView);
+			void this.validateFile(activeView.file, activeView);
 		}
 	}
 
@@ -81,7 +84,7 @@ export default class StructuredContextPlugin extends Plugin {
 			return;
 		}
 
-		const cmView = (view.editor as any).cm as EditorView | undefined;
+		const cmView = (view.editor as unknown as { cm?: EditorView }).cm;
 		if (!cmView) return;
 
 		cmView.dispatch({
@@ -89,17 +92,47 @@ export default class StructuredContextPlugin extends Plugin {
 		});
 	}
 
+	private buildConfig(): Config {
+		const { configMode, configPath, spaces } = this.settings;
+		const adapter = this.app.vault.adapter;
+		const basePath = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
+
+		switch (configMode) {
+			case "builtin": {
+				if (!basePath) return { spaces: [] };
+				return {
+					spaces: spaces.map(s => ({
+						name: s.name,
+						path: join(basePath, s.path),
+						// Anchors relative schema and plugin paths; required for configs not loaded from a file.
+						sourceDir: basePath,
+						schema: s.schema ? join(basePath, s.schema) : DEFAULT_SCHEMA,
+					})),
+				};
+			}
+			case "custom":
+				setConfigPath(configPath || undefined);
+				return loadConfig();
+			case "system":
+				setConfigPath(undefined);
+				return loadConfig();
+		}
+	}
+
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<PluginSettings>
-		);
+		const saved = (await this.loadData()) as Record<string, unknown> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved ?? {});
+		// Migrate: preserve existing behaviour for users with no configMode
+		if (saved && !saved.configMode) {
+			this.settings.configMode =
+				typeof saved.configPath === "string" && saved.configPath !== ""
+					? "custom"
+					: "system";
+		}
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		// Recreate validator with updated settings
-		this.validator = new Validator(this.settings.configPath);
+		this.validator = new Validator(this.buildConfig());
 	}
 }
