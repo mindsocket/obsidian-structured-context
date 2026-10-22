@@ -5,6 +5,7 @@ import { EditorView } from "@codemirror/view";
 import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
 import { Validator } from "./validator";
 import { setValidationResult, validationField } from "./editor-extension";
+import { MAP_VIEW_TYPE, MapViewPane } from "./map-view";
 
 /** Bundled schema used for built-in spaces that don't set one; structured-context requires an explicit schema. */
 const DEFAULT_SCHEMA = "strategy_general.json";
@@ -27,6 +28,13 @@ export default class StructuredContextPlugin extends Plugin {
 		this.validator = new Validator(this.buildConfig());
 
 		this.registerEditorExtension([validationField]);
+
+		this.registerView(MAP_VIEW_TYPE, (leaf) => new MapViewPane(leaf));
+		this.addCommand({
+			id: "open-map-view",
+			name: "Open map view",
+			callback: () => this.app.workspace.getLeaf("tab").setViewState({ type: MAP_VIEW_TYPE, active: true }),
+		});
 
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", () => {
