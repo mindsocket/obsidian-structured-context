@@ -1,5 +1,7 @@
 import { FileSystemAdapter, Notice, Plugin, MarkdownView, TFile } from "obsidian";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import bundledSchemas from "virtual:bundled-schemas";
 import { loadConfig, setBundledSchemasDir, setConfigPath, type Config } from "structured-context/api";
 import { EditorView } from "@codemirror/view";
 import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
@@ -8,6 +10,16 @@ import { setValidationResult, validationField } from "./editor-extension";
 
 /** Bundled schema used for built-in spaces that don't set one; structured-context requires an explicit schema. */
 const DEFAULT_SCHEMA = "strategy_general.json";
+
+/** Write the schemas embedded at build time into dir, touching only files that are missing or changed. */
+function writeBundledSchemas(dir: string) {
+	for (const [relPath, contents] of Object.entries(bundledSchemas)) {
+		const file = join(dir, relPath);
+		if (existsSync(file) && readFileSync(file, "utf8") === contents) continue;
+		mkdirSync(dirname(file), { recursive: true });
+		writeFileSync(file, contents);
+	}
+}
 
 export default class StructuredContextPlugin extends Plugin {
 	settings: PluginSettings;
@@ -18,10 +30,12 @@ export default class StructuredContextPlugin extends Plugin {
 		await this.loadSettings();
 		this.addSettingTab(new StructuredContextSettingTab(this.app, this));
 
-		// Point to schemas bundled alongside this plugin
+		// structured-context reads its bundled schemas from disk, so write them next to the plugin
 		if (this.app.vault.adapter instanceof FileSystemAdapter && this.manifest.dir) {
 			const pluginDir = join(this.app.vault.adapter.getBasePath(), this.manifest.dir);
-			setBundledSchemasDir(join(pluginDir, "schemas"));
+			const schemasDir = join(pluginDir, "schemas");
+			writeBundledSchemas(schemasDir);
+			setBundledSchemasDir(schemasDir);
 		}
 
 		this.validator = new Validator(this.buildConfig());

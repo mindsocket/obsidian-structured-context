@@ -10,7 +10,7 @@ When you open or edit a file, the plugin checks it against your schema and highl
 
 ## Installation
 
-Install from the Obsidian community plugins browser (coming soon) or manually by copying the files to your vault's `.obsidian/plugins/structured-context/` directory.
+Not yet in the Obsidian community plugins browser. To try it, download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/mindsocket/obsidian-structured-context/releases/latest) into your vault's `.obsidian/plugins/structured-context/` folder, or install it with [BRAT](https://github.com/TfTHacker/obsidian42-brat).
 
 ## Setup
 
@@ -41,6 +41,7 @@ npm install              # install dependencies
 npm run build            # build to dist/
 npm run dev              # watch mode, rebuilds on change
 npm run install-to-vault # copy dist/ to configured vault (requires install.json)
+npm run test:smoke       # after a build: install into a throwaway vault and validate fixture notes
 ```
 
 To test your changes locally:

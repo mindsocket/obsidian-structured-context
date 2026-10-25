@@ -1,0 +1,32 @@
+name: Release
+
+# Push a version tag (created by `npm version`) to publish a GitHub release.
+# Obsidian installs a plugin from the release's main.js, manifest.json and styles.css.
+on:
+    push:
+        tags: ["[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+    contents: write
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22.x
+                  cache: "npm"
+            - run: npm ci
+            - run: npm run build
+            - run: npm run lint
+            - run: npm run test:smoke
+            - name: Check the tag matches the manifest
+              run: test "$(jq -r .version manifest.json)" = "${GITHUB_REF_NAME}"
+            - name: Create the release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes \
+                      dist/main.js dist/manifest.json dist/styles.css

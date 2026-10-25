@@ -18,7 +18,7 @@ This plugin bundles `structured-context` as a library via esbuild and calls `val
 **Architecture:**
 - Uses `structured-context/api` exports (not the CLI)
 - Config cached in Validator constructor (not reloaded on each validation)
-- Schemas bundled alongside plugin in `dist/schemas/`
+- Schemas embedded in `main.js` and written to `<plugin dir>/schemas/` on load
 - CM6 editor extensions for inline decorations
 
 ## Development
@@ -50,7 +50,8 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 - `src/validator.ts` — Wraps `validateFile()` from structured-context, caches config
 - `src/editor-extension.ts` — CM6 StateField for validation decorations
 - `src/settings.ts` — Plugin settings UI (config path, debounce)
-- `esbuild.config.mjs` — Build config, copies schemas/manifest.json to `dist/`
+- `esbuild.config.mjs` — Build config; embeds structured-context's schemas (`virtual:bundled-schemas`) and copies manifest.json and styles.css to `dist/`
+- `scripts/smoke-test.mjs` — Installs the release files into a throwaway vault and validates fixture notes (`tests/smoke/`) with `obsidian` stubbed
 
 ## How validation works
 
@@ -72,12 +73,18 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 
 ## Build output
 
-The `dist/` directory contains everything needed to run:
-- `main.js` — Bundled plugin (includes structured-context)
+`dist/` holds exactly the files a release carries, which is all Obsidian installs:
+- `main.js` — Bundled plugin (includes structured-context and its schemas)
 - `manifest.json` — Copied from repo root
-- `schemas/` — Copied from structured-context package
+- `styles.css` — Copied from repo root
 
-This entire directory is copied to the vault on install.
+`npm run install-to-vault` copies this directory to the vault. The plugin writes the embedded schemas into its own folder on load, because structured-context reads them from disk.
+
+## Testing and releasing
+
+- `npm run test:smoke` — run after `npm run build`. Mirrors a release install, so a file the plugin needs at runtime but a release lacks fails here.
+- CI (`.github/workflows/test.yml`) runs build, lint and the smoke test.
+- Release: `npm version <patch|minor|major>` bumps `manifest.json` and `versions.json`, commits and tags (no `v` prefix, as Obsidian requires). Pushing the tag runs `.github/workflows/release.yml`, which attaches the three files to a GitHub release.
 
 ## Bundling approach and implications
 

@@ -1,8 +1,8 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from 'node:module';
-import { cpSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { cpSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
@@ -11,12 +11,36 @@ const configDir = dirname(fileURLToPath(import.meta.url));
 const apiEntry = require.resolve('structured-context/api');
 const sctxRoot = resolve(dirname(apiEntry), '..');
 
+/** Every file under dir, as { path relative to dir: contents }. */
+function readTree(dir, base = dir, out = {}) {
+	for (const name of readdirSync(dir)) {
+		const full = join(dir, name);
+		if (statSync(full).isDirectory()) readTree(full, base, out);
+		else out[relative(base, full).split("\\").join("/")] = readFileSync(full, "utf8");
+	}
+	return out;
+}
+
+// A release carries only main.js, manifest.json and styles.css, so structured-context's bundled schemas
+// travel inside main.js and are written next to it when the plugin loads.
+const embeddedSchemas = {
+	name: "embedded-schemas",
+	setup(build) {
+		build.onResolve({ filter: /^virtual:bundled-schemas$/ }, (args) => ({ path: args.path, namespace: "sctx-schemas" }));
+		build.onLoad({ filter: /.*/, namespace: "sctx-schemas" }, () => ({
+			contents: `export default ${JSON.stringify(readTree(resolve(sctxRoot, "schemas")))};`,
+			loader: "js",
+			watchDirs: [resolve(sctxRoot, "schemas")],
+		}));
+	},
+};
+
 const copyAssets = {
 	name: "copy-assets",
 	setup(build) {
 		build.onEnd(() => {
-			cpSync(resolve(sctxRoot, "schemas"), resolve(configDir, "dist/schemas"), { recursive: true });
 			cpSync("manifest.json", "dist/manifest.json");
+			cpSync("styles.css", "dist/styles.css");
 		});
 	},
 };
@@ -31,7 +55,7 @@ if you want to view the source, please visit the github repository of this plugi
 const prod = (process.argv[2] === "production");
 
 const context = await esbuild.context({
-	plugins: [copyAssets],
+	plugins: [embeddedSchemas, copyAssets],
 	banner: {
 		js: banner,
 	},

@@ -1,4 +1,4 @@
-name: Node.js build
+name: Test
 
 on:
     push:
@@ -23,6 +23,7 @@ jobs:
                   node-version: ${{ matrix.node-version }}
                   cache: "npm"
             - run: npm ci
-            - run: npm run build --if-present
+            - run: npm run build
             - run: npm run lint
-
+            # Installs the release files into a throwaway vault and loads the plugin outside Obsidian
+            - run: npm run test:smoke
