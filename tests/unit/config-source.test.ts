@@ -64,6 +64,28 @@ describe("custom config file", () => {
 	});
 });
 
+describe("discovery", () => {
+	it("starts discovery at the vault folder and reports the file it found", () => {
+		let startedAt: string | undefined;
+		const loader: ConfigLoader = (_path, startDir) => ((startedAt = startDir), systemConfig);
+		const result = resolveConfig(settings({ configMode: "system" }), BASE, loader, () => join(BASE, ".sctx.json"));
+		assert.equal(startedAt, BASE);
+		assert.equal(result.file, join(BASE, ".sctx.json"));
+	});
+
+	it("reports the discovered file when automatic mode uses it, and none for built-in spaces", () => {
+		const found = resolveConfig(settings(), BASE, loaderOf(systemConfig), () => "/found/.sctx.json");
+		assert.equal(found.file, "/found/.sctx.json");
+		const builtin = resolveConfig(settings(), BASE, loaderOf({ spaces: [] }), () => "/found/.sctx.json");
+		assert.equal(builtin.file, undefined);
+	});
+
+	it("reports the chosen file for a custom config", () => {
+		const result = resolveConfig(settings({ configMode: "custom", configPath: "/my/config.json" }), BASE, loaderOf(systemConfig));
+		assert.equal(result.file, "/my/config.json");
+	});
+});
+
 describe("system config", () => {
 	it("is discovered, not given a path", () => {
 		let asked: string | undefined = "unset";

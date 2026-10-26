@@ -1,7 +1,7 @@
 // Install the release assets into a throwaway vault and load the plugin outside Obsidian, so a bad
 // bundle or a missing runtime file fails here rather than after a release. Run `npm run build` first.
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -37,18 +37,32 @@ try {
 		vault: { adapter: new FileSystemAdapter(vault), on() {} },
 		workspace: { on() {}, getActiveViewOfType: () => null, getLeaf: () => ({}) },
 	};
-	const plugin = new Plugin(app, { ...manifest, dir: ".obsidian/plugins/structured-context" });
-	plugin.savedData = { configMode: "builtin", spaces: [{ name: "smoke", path: "notes" }] };
-	await plugin.onload();
+	const load = async (savedData) => {
+		const plugin = new Plugin(app, { ...manifest, dir: ".obsidian/plugins/structured-context" });
+		plugin.savedData = savedData;
+		await plugin.onload();
+		return plugin;
+	};
+	const check = async (plugin, label) => {
+		const results = {};
+		for (const name of ["valid-goal", "invalid-type"]) {
+			results[name] = await plugin.validator.validate(join(vault, "notes", `${name}.md`));
+		}
+		assert.ok(results["valid-goal"], `${label}: valid note was not found in the space`);
+		assert.equal(results["valid-goal"].errorCount, 0, `${label}: valid note failed: ${JSON.stringify(results["valid-goal"])}`);
+		assert.ok(results["invalid-type"]?.errorCount > 0, `${label}: invalid note passed validation`);
+		plugin.onunload();
+	};
 
-	const results = {};
-	for (const name of ["valid-goal", "invalid-type"]) {
-		results[name] = await plugin.validator.validate(join(vault, "notes", `${name}.md`));
-	}
-	assert.ok(results["valid-goal"], "valid note was not found in the space");
-	assert.equal(results["valid-goal"].errorCount, 0, `valid note failed: ${JSON.stringify(results["valid-goal"])}`);
-	assert.ok(results["invalid-type"]?.errorCount > 0, "invalid note passed validation");
-	plugin.onunload();
+	// Spaces kept in the plugin settings
+	await check(await load({ configMode: "builtin", spaces: [{ name: "smoke", path: "notes" }] }), "built-in");
+
+	// A .sctx.json at the vault root, found by discovery in automatic mode
+	writeFileSync(join(vault, ".sctx.json"), JSON.stringify({ spaces: [{ name: "smoke", path: "notes", schema: "strategy_general.json" }] }));
+	const discovered = await load({ configMode: "auto", spaces: [] });
+	assert.equal(discovered.resolvedConfig.source, "system");
+	assert.equal(discovered.resolvedConfig.file, join(vault, ".sctx.json"));
+	await check(discovered, "vault .sctx.json");
 	console.log("smoke ok");
 } finally {
 	rmSync(vault, { recursive: true, force: true });
