@@ -15,28 +15,37 @@ Not yet in the Obsidian community plugins browser. To try it, download `main.js`
 ## Setup
 
 1. Enable the plugin in Obsidian settings.
-2. Open the plugin's settings. Under **Spaces**, add a space: a name, the vault folder that holds your content, and optionally a schema file in your vault. Without a schema, the bundled `strategy_general.json` is used.
-3. Open a markdown file in that folder.
+2. If you already use [structured-context](https://github.com/mindsocket/structured-context) on the command line, you're done: the plugin uses the same system config.
+3. Otherwise open the plugin's settings and, under **Spaces**, add a space: a name, the vault folder that holds your content, and optionally a schema file in your vault. Without a schema, the bundled `strategy_general.json` is used.
+4. Open a markdown file in that folder.
 
-Files outside every space are ignored.
-
-If you already use [structured-context](https://github.com/mindsocket/structured-context) on the command line, set **Config source** to **Custom config file** (and give its path), or **System config** to use the same config the `sctx` command finds.
+Files outside every space are ignored. The settings page shows which config is in use and the spaces it defines.
 
 ## What you'll see
 
-- **Highlighted frontmatter lines** for property-level errors (wrong value, missing required field, etc.), with an inline message showing what's wrong
+- **Highlighted frontmatter lines** for property-level issues (wrong value, missing required field, etc.), with an inline message showing what's wrong
 - **A block panel below the frontmatter** for document-level issues: broken links, hierarchy violations, rule violations, and duplicate titles
 
-Validation runs when you open a file and after you edit it.
+Issues are shown by severity, each with its own colour and symbol:
+
+| Severity | Symbol | Meaning |
+|---|---|---|
+| Error | ✖ red | The file fails validation |
+| Warning | ⚠ orange | Worth fixing; the file still passes |
+| Info | ⓘ blue | A suggestion |
+
+Validation runs when you open a file and after you edit it. Semantic (AI-judged) rules never run in the editor.
 
 ## Settings
 
 | Setting | Description |
 |---|---|
-| Config source | **Built-in** manages spaces in the plugin's settings. **Custom config file** loads a structured-context `config.json` from a path you give. **System config** finds one the way the `sctx` command does: the `SCTX_CONFIG` environment variable, then `~/.config/structured-context/config.json`. |
-| Spaces | Built-in mode only. Each space has a name, a vault folder and an optional schema file. |
-| Config file path | Custom mode only. Path to a structured-context `config.json`. |
+| Config source | **Automatic** (the default) uses the system config when it defines spaces, and your built-in spaces otherwise. **Built-in spaces only**, **Custom config file** and **System config only** pick one source. |
+| Spaces | Shown for Automatic and Built-in. Each space has a name, a vault folder and an optional schema file. |
+| Config file path | Custom config only. Path to a structured-context `config.json`. |
 | Validation debounce (ms) | How long to wait after you stop editing before re-validating (default 1500). Increase it if validation feels slow on large content sets. |
+
+The system config is the file named by the `SCTX_CONFIG` environment variable, or `~/.config/structured-context/config.json`.
 
 ## Development
 
@@ -45,6 +54,7 @@ npm install              # install dependencies
 npm run build            # build to dist/
 npm run dev              # watch mode, rebuilds on change
 npm run install-to-vault # copy dist/ to configured vault (requires install.json)
+npm test                 # unit tests
 npm run test:smoke       # after a build: install into a throwaway vault and validate fixture notes
 ```
 

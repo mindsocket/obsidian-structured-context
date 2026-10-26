@@ -1,23 +1,13 @@
 import { App, AbstractInputSuggest, Modal, Notice, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
 import type StructuredContextPlugin from "./main";
+import type { ConfigMode, ConfigSettings, SpaceSetting } from "./config-source";
 
-export type ConfigMode = "builtin" | "custom" | "system";
-
-export interface SpaceSetting {
-	name: string;
-	path: string;    // vault-relative
-	schema?: string; // vault-relative, optional
-}
-
-export interface PluginSettings {
-	configMode: ConfigMode;
-	spaces: SpaceSetting[];  // used when configMode === "builtin"
-	configPath: string;      // used when configMode === "custom"
+export interface PluginSettings extends ConfigSettings {
 	debounceMs: number;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
-	configMode: "builtin",
+	configMode: "auto",
 	spaces: [],
 	configPath: "",
 	debounceMs: 1500,
@@ -131,6 +121,8 @@ class SpaceEditModal extends Modal {
 	}
 }
 
+const SYSTEM_CONFIG_HELP = "The system config is the file named by the SCTX_CONFIG environment variable, or ~/.config/structured-context/config.json.";
+
 export class StructuredContextSettingTab extends PluginSettingTab {
 	plugin: StructuredContextPlugin;
 
@@ -149,11 +141,12 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Config source")
-			.setDesc("Where to load the space configuration from.")
+			.setDesc("Where the spaces to validate come from.")
 			.addDropdown(drop => drop
-				.addOption("builtin", "Built-in (manage spaces here)")
+				.addOption("auto", "Automatic (recommended)")
+				.addOption("builtin", "Built-in spaces only")
 				.addOption("custom", "Custom config file")
-				.addOption("system", "System config (auto-discover)")
+				.addOption("system", "System config only")
 				.setValue(this.plugin.settings.configMode)
 				.onChange(async (value: string) => {
 					this.plugin.settings.configMode = value as ConfigMode;
@@ -162,14 +155,22 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 				})
 			);
 
+		this.renderStatus(containerEl);
+
 		const { configMode } = this.plugin.settings;
 
-		if (configMode === "builtin") {
+		if (configMode === "auto") {
+			containerEl.createEl("p", {
+				text: `Automatic uses your system config when it defines spaces. ${SYSTEM_CONFIG_HELP} Otherwise it uses the spaces below.`,
+				cls: "setting-item-description",
+			});
+		}
+		if (configMode === "auto" || configMode === "builtin") {
 			this.renderBuiltinSection(containerEl);
 		} else if (configMode === "custom") {
 			this.renderCustomSection(containerEl);
 		} else {
-			this.renderSystemSection(containerEl);
+			containerEl.createEl("p", { text: SYSTEM_CONFIG_HELP, cls: "setting-item-description" });
 		}
 
 		new Setting(containerEl)
@@ -181,7 +182,8 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 					const n = Number(value);
 					if (Number.isInteger(n) && n >= 0) {
 						this.plugin.settings.debounceMs = n;
-						await this.plugin.saveSettings();
+						// Read live by the modify handler, so the config needs no rebuild
+						await this.plugin.saveData(this.plugin.settings);
 					}
 				})
 			);
@@ -229,24 +231,32 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 			);
 	}
 
+	private renderStatus(containerEl: HTMLElement): void {
+		const { source, config, error } = this.plugin.resolvedConfig;
+		const names = { builtin: "built-in spaces", custom: "custom config file", system: "system config" };
+		const count = config.spaces.length;
+		const summary = count === 0
+			? `Using ${names[source]}: no spaces defined, so nothing is validated.`
+			: `Using ${names[source]}: ${count} ${count === 1 ? "space" : "spaces"} (${config.spaces.map(s => s.name).join(", ")}).`;
+		containerEl.createEl("p", { text: summary, cls: "setting-item-description" });
+		if (error) {
+			containerEl.createEl("p", { text: `Config problem: ${error}`, cls: "setting-item-description mod-warning" });
+		}
+	}
+
 	private renderCustomSection(containerEl: HTMLElement): void {
 		new Setting(containerEl)
 			.setName("Config file path")
-			.setDesc("Path to your sctx config.json.")
-			.addText(text => text
-				.setPlaceholder("/path/to/config.json")
-				.setValue(this.plugin.settings.configPath)
-				.onChange(async value => {
-					this.plugin.settings.configPath = value;
-					await this.plugin.saveSettings();
-				})
-			);
-	}
-
-	private renderSystemSection(containerEl: HTMLElement): void {
-		new Setting(containerEl)
-			.setName("System config")
-			.setDesc("Uses the SCTX_CONFIG environment variable, or config.json in the standard XDG config location (~/.config/structured-context/config.json).");
+			.setDesc("Path to a structured-context config.json. Applied when you leave the field.")
+			.addText(text => {
+				text
+					.setPlaceholder("/path/to/config.json")
+					.setValue(this.plugin.settings.configPath)
+					.onChange(value => { this.plugin.settings.configPath = value; });
+				text.inputEl.addEventListener("blur", () => {
+					void this.plugin.saveSettings().then(() => this.display());
+				});
+			});
 	}
 
 	private openSpaceModal(index: number | null): void {

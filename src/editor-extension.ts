@@ -12,28 +12,47 @@ import {
 } from "@codemirror/state";
 import type { FileValidationResult } from "structured-context/types";
 
-type ValidationError = FileValidationResult["errors"][string];
+/** How an issue is shown. Info is a rule violation of `info` severity, which structured-context reports among its warnings. */
+export type Severity = "error" | "warning" | "info";
+
+const SEVERITY_ORDER: Severity[] = ["error", "warning", "info"];
+const GLYPH: Record<Severity, string> = { error: "✖", warning: "⚠", info: "ⓘ" };
 
 const SCHEMA_ERROR_PREFIX = "schema:/" as const;
 
 export const setValidationResult =
 	StateEffect.define<FileValidationResult | null>();
 
-class InlineErrorWidget extends WidgetType {
-	constructor(private message: string) {
+export interface PlannedIssue {
+	severity: Severity;
+	message: string;
+}
+
+/** What to draw for a validation result: issues tied to a frontmatter line, and the rest. */
+export interface DecorationPlan {
+	/** Frontmatter lines (1-indexed) with issues, errors first. */
+	lines: Array<{ line: number; issues: PlannedIssue[] }>;
+	/** Issues not tied to a property, shown in a panel after the frontmatter. */
+	panel: PlannedIssue[];
+	/** 1-indexed line the panel follows, or 0 for the top of the document. */
+	panelAfterLine: number;
+}
+
+class InlineIssueWidget extends WidgetType {
+	constructor(readonly issue: PlannedIssue) {
 		super();
 	}
 
 	toDOM(): HTMLElement {
 		const span = document.createElement("span");
-		span.className = "sctx-inline-error";
-		span.setAttribute("aria-label", this.message);
-		span.textContent = ` ⚠ ${this.message}`;
+		span.className = `sctx-inline-issue sctx-${this.issue.severity}`;
+		span.setAttribute("aria-label", this.issue.message);
+		span.textContent = ` ${GLYPH[this.issue.severity]} ${this.issue.message}`;
 		return span;
 	}
 
-	eq(other: InlineErrorWidget): boolean {
-		return this.message === other.message;
+	eq(other: InlineIssueWidget): boolean {
+		return this.issue.severity === other.issue.severity && this.issue.message === other.issue.message;
 	}
 
 	ignoreEvent(): boolean {
@@ -41,30 +60,41 @@ class InlineErrorWidget extends WidgetType {
 	}
 }
 
-class ErrorPanelWidget extends WidgetType {
-	constructor(private errors: Array<ValidationError>) {
+class IssuePanelWidget extends WidgetType {
+	constructor(readonly issues: PlannedIssue[]) {
 		super();
 	}
 
 	toDOM(): HTMLElement {
 		const div = document.createElement("div");
-		div.className = "sctx-error-panel";
-		for (const err of this.errors) {
+		div.className = `sctx-issue-panel sctx-${worst(this.issues)}`;
+		for (const issue of this.issues) {
 			const item = document.createElement("div");
-			item.className = `sctx-error-item sctx-error-${err.kind}`;
-			item.textContent = `⚠ ${err.message}`;
+			item.className = `sctx-issue-item sctx-${issue.severity}`;
+			const glyph = document.createElement("span");
+			glyph.className = "sctx-glyph";
+			glyph.textContent = GLYPH[issue.severity];
+			item.append(glyph, ` ${issue.message}`);
 			div.appendChild(item);
 		}
 		return div;
 	}
 
-	eq(other: ErrorPanelWidget): boolean {
-		return JSON.stringify(this.errors) === JSON.stringify(other.errors);
+	eq(other: IssuePanelWidget): boolean {
+		return JSON.stringify(this.issues) === JSON.stringify(other.issues);
 	}
 
 	ignoreEvent(): boolean {
 		return false;
 	}
+}
+
+function worst(issues: PlannedIssue[]): Severity {
+	return SEVERITY_ORDER.find(sev => issues.some(i => i.severity === sev)) ?? "info";
+}
+
+function bySeverity(a: PlannedIssue, b: PlannedIssue): number {
+	return SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity);
 }
 
 const MAX_FRONTMATTER_LINES = 200;
@@ -110,61 +140,61 @@ function extractProperty(errorKey: string): string | null {
 	return prop || null;
 }
 
-function buildDecorations(
-	doc: Text,
-	result: FileValidationResult
-): DecorationSet {
-	const errors = Object.entries(result.errors);
-	if (errors.length === 0) return Decoration.none;
+function collectIssues(result: FileValidationResult): Array<{ key: string; issue: PlannedIssue }> {
+	const out: Array<{ key: string; issue: PlannedIssue }> = [];
+	for (const [key, issue] of Object.entries(result.errors)) {
+		out.push({ key, issue: { severity: "error", message: issue.message } });
+	}
+	for (const [key, issue] of Object.entries(result.warnings)) {
+		out.push({ key, issue: { severity: issue.severity === "info" ? "info" : "warning", message: issue.message } });
+	}
+	return out;
+}
 
+export function planDecorations(doc: Text, result: FileValidationResult): DecorationPlan {
 	const fm = parseFrontmatter(doc);
-	const builder = new RangeSetBuilder<Decoration>();
+	const byLine = new Map<number, PlannedIssue[]>();
+	const panel: PlannedIssue[] = [];
 
-	const propErrors: Array<{ lineNum: number; error: ValidationError }> = [];
-	const docErrors: Array<ValidationError> = [];
-
-	for (const [key, error] of errors) {
+	for (const { key, issue } of collectIssues(result)) {
 		const prop = extractProperty(key);
 		const lineNum = prop ? fm?.propertyLines.get(prop) : undefined;
-		if (lineNum !== undefined) {
-			propErrors.push({ lineNum, error });
+		if (lineNum === undefined) {
+			panel.push(issue);
 		} else {
-			docErrors.push(error);
+			byLine.set(lineNum, [...(byLine.get(lineNum) ?? []), issue]);
 		}
 	}
 
-	// RangeSetBuilder requires ranges in non-decreasing `from` order
-	propErrors.sort((a, b) => a.lineNum - b.lineNum);
+	return {
+		lines: [...byLine.entries()]
+			.sort(([a], [b]) => a - b)
+			.map(([line, issues]) => ({ line, issues: issues.sort(bySeverity) })),
+		panel: panel.sort(bySeverity),
+		panelAfterLine: fm?.endLine ?? 0,
+	};
+}
 
-	const seenLines = new Set<number>();
-	for (const { lineNum, error } of propErrors) {
+function buildDecorations(doc: Text, result: FileValidationResult): DecorationSet {
+	const plan = planDecorations(doc, result);
+	const builder = new RangeSetBuilder<Decoration>();
+
+	// RangeSetBuilder requires ranges in non-decreasing `from` order, which the plan's line order gives
+	for (const { line: lineNum, issues } of plan.lines) {
 		const line = doc.line(lineNum);
-		if (!seenLines.has(lineNum)) {
-			seenLines.add(lineNum);
-			builder.add(
-				line.from,
-				line.from,
-				Decoration.line({ class: "sctx-error-line" })
-			);
+		builder.add(line.from, line.from, Decoration.line({ class: `sctx-issue-line sctx-${worst(issues)}` }));
+		for (const issue of issues) {
+			// side:1 = after existing content
+			builder.add(line.to, line.to, Decoration.widget({ widget: new InlineIssueWidget(issue), side: 1 }));
 		}
-		// Inline widget at end of line (side:1 = after existing content)
-		builder.add(
-			line.to,
-			line.to,
-			Decoration.widget({ widget: new InlineErrorWidget(error.message), side: 1 })
-		);
 	}
 
-	if (docErrors.length > 0) {
-		const insertPos = fm ? doc.line(fm.endLine).to : 0;
+	if (plan.panel.length > 0) {
+		const insertPos = plan.panelAfterLine > 0 ? doc.line(plan.panelAfterLine).to : 0;
 		builder.add(
 			insertPos,
 			insertPos,
-			Decoration.widget({
-				widget: new ErrorPanelWidget(docErrors),
-				side: 1,
-				block: true,
-			})
+			Decoration.widget({ widget: new IssuePanelWidget(plan.panel), side: 1, block: true })
 		);
 	}
 

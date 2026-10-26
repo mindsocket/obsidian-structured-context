@@ -1,35 +1,40 @@
 /* Structured Context plugin styles */
 
-/* Highlight a frontmatter line that has a validation error */
-.sctx-error-line {
-	background-color: rgba(var(--color-red-rgb), 0.08);
+/* Severity colours: errors fail validation; warnings and info are advisory */
+.sctx-error { --sctx-color: var(--color-red); --sctx-color-rgb: var(--color-red-rgb); }
+.sctx-warning { --sctx-color: var(--color-orange); --sctx-color-rgb: var(--color-orange-rgb); }
+.sctx-info { --sctx-color: var(--color-blue); --sctx-color-rgb: var(--color-blue-rgb); }
+
+/* Highlight a frontmatter line that has an issue, tinted by its worst severity */
+.sctx-issue-line {
+	background-color: rgba(var(--sctx-color-rgb), 0.08);
 }
 
-/* Inline error message appended after a frontmatter property value */
-.sctx-inline-error {
-	color: var(--color-red);
+/* Inline message appended after a frontmatter property value */
+.sctx-inline-issue {
+	color: var(--sctx-color);
 	font-size: 0.85em;
 	opacity: 0.85;
 	cursor: default;
 	user-select: none;
 }
 
-/* Block panel shown after the frontmatter closing --- for document-level errors */
-.sctx-error-panel {
-	border-left: 3px solid var(--color-red);
+/* Block panel shown after the frontmatter closing --- for document-level issues */
+.sctx-issue-panel {
+	border-left: 3px solid var(--sctx-color);
 	margin: 4px 0 8px 0;
 	padding: 6px 10px;
-	background-color: rgba(var(--color-red-rgb), 0.05);
+	background-color: rgba(var(--sctx-color-rgb), 0.05);
 	border-radius: 0 4px 4px 0;
 	font-size: 0.85em;
 }
 
-.sctx-error-item {
+.sctx-issue-item {
 	color: var(--text-muted);
 	padding: 1px 0;
 }
 
-.sctx-error-item::before {
-	content: "⚠ ";
-	color: var(--color-red);
+/* Each item's glyph carries its own severity colour */
+.sctx-glyph {
+	color: var(--sctx-color);
 }

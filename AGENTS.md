@@ -4,9 +4,9 @@ Desktop-only Obsidian plugin that provides inline validation for [structured-con
 
 ## What it does
 
-Validates markdown files against their schemas and shows errors directly in the editor:
-- **Property-level errors** highlighted on frontmatter lines with inline messages
-- **Document-level errors** shown in a block panel below frontmatter
+Validates markdown files against their schemas and shows issues directly in the editor, by severity (error, warning, info):
+- **Property-level issues** highlighted on frontmatter lines with inline messages
+- **Document-level issues** shown in a block panel below frontmatter
 - Automatic validation on file open and edit (debounced)
 
 Files outside any configured space are silently ignored.
@@ -48,8 +48,9 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 
 - `src/main.ts` — Plugin entry point, event handlers, debouncing
 - `src/validator.ts` — Wraps `validateFile()` from structured-context, caches config
-- `src/editor-extension.ts` — CM6 StateField for validation decorations
-- `src/settings.ts` — Plugin settings UI (config path, debounce)
+- `src/editor-extension.ts` — CM6 StateField for validation decorations. `planDecorations` decides what to draw (error, warning and info); it is pure and unit-tested
+- `src/config-source.ts` — Chooses the config from settings: auto (system config if it has spaces, else built-in), built-in, custom or system. No Obsidian imports, so it is unit-tested
+- `src/settings.ts` — Plugin settings UI (config source, spaces, debounce)
 - `esbuild.config.mjs` — Build config; embeds structured-context's schemas (`virtual:bundled-schemas`) and copies manifest.json and styles.css to `dist/`
 - `scripts/smoke-test.mjs` — Installs the release files into a throwaway vault and validates fixture notes (`tests/smoke/`) with `obsidian` stubbed
 
@@ -57,7 +58,7 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 
 1. **Plugin load** (`onload`):
    - Calls `setBundledSchemasDir()` to point to bundled schemas
-   - Creates Validator with cached config
+   - Resolves the config from settings (`resolveConfig`) and creates the Validator with it; a settings change rebuilds both and revalidates the open note
    - Registers CM6 extension
    - Sets up event handlers for file open/modify
 
@@ -82,8 +83,9 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 
 ## Testing and releasing
 
+- `npm test` — unit tests in `tests/unit/`, bundled with esbuild and run with `node --test`. Pure logic belongs in modules that don't import `obsidian`, so it can be tested here.
 - `npm run test:smoke` — run after `npm run build`. Mirrors a release install, so a file the plugin needs at runtime but a release lacks fails here.
-- CI (`.github/workflows/test.yml`) runs build, lint and the smoke test.
+- CI (`.github/workflows/test.yml`) runs build, lint, unit tests and the smoke test.
 - Release: `npm version <patch|minor|major>` bumps `manifest.json` and `versions.json`, commits and tags (no `v` prefix, as Obsidian requires). Pushing the tag runs `.github/workflows/release.yml`, which attaches the three files to a GitHub release.
 
 ## Bundling approach and implications

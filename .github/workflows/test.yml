@@ -24,5 +24,6 @@ jobs:
             - run: npm ci
             - run: npm run build
             - run: npm run lint
+            - run: npm test
             # Installs the release files into a throwaway vault and loads the plugin outside Obsidian
             - run: npm run test:smoke

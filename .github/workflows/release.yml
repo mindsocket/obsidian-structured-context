@@ -25,6 +25,7 @@ jobs:
             - run: npm ci
             - run: npm run build
             - run: npm run lint
+            - run: npm test
             - run: npm run test:smoke
             - name: Check the tag matches the manifest and versions.json
               run: |

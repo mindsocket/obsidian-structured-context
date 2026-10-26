@@ -2,14 +2,12 @@ import { FileSystemAdapter, Notice, Plugin, MarkdownView, TFile } from "obsidian
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import bundledSchemas from "virtual:bundled-schemas";
-import { loadConfig, setBundledSchemasDir, setConfigPath, type Config } from "structured-context/api";
+import { setBundledSchemasDir } from "structured-context/api";
 import { EditorView } from "@codemirror/view";
+import { CONFIG_MODES, resolveConfig, type ResolvedConfig } from "./config-source";
 import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
 import { Validator } from "./validator";
 import { setValidationResult, validationField } from "./editor-extension";
-
-/** Bundled schema used for built-in spaces that don't set one; structured-context requires an explicit schema. */
-const DEFAULT_SCHEMA = "strategy_general.json";
 
 /** Write the schemas embedded at build time into dir, touching only files that are missing or changed. */
 function writeBundledSchemas(dir: string) {
@@ -24,6 +22,8 @@ function writeBundledSchemas(dir: string) {
 export default class StructuredContextPlugin extends Plugin {
 	settings: PluginSettings;
 	private validator: Validator;
+	/** The config in use and where it came from; the settings tab reports it. */
+	resolvedConfig: ResolvedConfig;
 	private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 	async onload() {
@@ -38,7 +38,7 @@ export default class StructuredContextPlugin extends Plugin {
 			setBundledSchemasDir(schemasDir);
 		}
 
-		this.validator = new Validator(this.buildConfig());
+		this.applyConfig();
 
 		this.registerEditorExtension([validationField]);
 
@@ -106,47 +106,33 @@ export default class StructuredContextPlugin extends Plugin {
 		});
 	}
 
-	private buildConfig(): Config {
-		const { configMode, configPath, spaces } = this.settings;
+	/** Build the config from the current settings and use it for validation. */
+	private applyConfig() {
 		const adapter = this.app.vault.adapter;
 		const basePath = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
-
-		switch (configMode) {
-			case "builtin": {
-				if (!basePath) return { spaces: [] };
-				return {
-					spaces: spaces.map(s => ({
-						name: s.name,
-						path: join(basePath, s.path),
-						// Anchors relative schema and plugin paths; required for configs not loaded from a file.
-						sourceDir: basePath,
-						schema: s.schema ? join(basePath, s.schema) : DEFAULT_SCHEMA,
-					})),
-				};
-			}
-			case "custom":
-				setConfigPath(configPath || undefined);
-				return loadConfig();
-			case "system":
-				setConfigPath(undefined);
-				return loadConfig();
+		this.resolvedConfig = resolveConfig(this.settings, basePath);
+		this.validator = new Validator(this.resolvedConfig.config);
+		if (this.resolvedConfig.error) {
+			new Notice(`Structured Context config problem: ${this.resolvedConfig.error}`);
+			console.error("[structured-context] Config error:", this.resolvedConfig.error);
 		}
 	}
 
 	async loadSettings() {
-		const saved = (await this.loadData()) as Record<string, unknown> | null;
+		const saved = (await this.loadData()) as Partial<PluginSettings> | null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved ?? {});
-		// Migrate: preserve existing behaviour for users with no configMode
-		if (saved && !saved.configMode) {
-			this.settings.configMode =
-				typeof saved.configPath === "string" && saved.configPath !== ""
-					? "custom"
-					: "system";
+		if (!CONFIG_MODES.includes(this.settings.configMode)) {
+			this.settings.configMode = DEFAULT_SETTINGS.configMode;
 		}
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		this.validator = new Validator(this.buildConfig());
+		this.applyConfig();
+		// The open note may now be in a different space, or none
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (view?.file) {
+			void this.validateFile(view.file, view);
+		}
 	}
 }
