@@ -14,25 +14,29 @@ Not yet in the Obsidian community plugins browser. To try it, download `main.js`
 
 ## Setup
 
-1. Create a [`structured-context`](https://github.com/mindsocket/structured-context) configuration in your vault
-2. Define at least one "space" pointing to your content directories
-3. Enable the plugin in Obsidian settings
-4. (Optional) Configure plugin settings if your config file is in a non-standard location
+1. Enable the plugin in Obsidian settings.
+2. Open the plugin's settings. Under **Spaces**, add a space: a name, the vault folder that holds your content, and optionally a schema file in your vault. Without a schema, the bundled `strategy_general.json` is used.
+3. Open a markdown file in that folder.
 
-Once configured, validation runs automatically when you open or edit markdown files in your spaces.
+Files outside every space are ignored.
+
+If you already use [structured-context](https://github.com/mindsocket/structured-context) on the command line, set **Config source** to **Custom config file** (and give its path), or **System config** to use the same config the `sctx` command finds.
 
 ## What you'll see
 
 - **Highlighted frontmatter lines** for property-level errors (wrong value, missing required field, etc.), with an inline message showing what's wrong
-- **A block panel below the frontmatter** for document-level issues: broken links, hierarchy violations, rule failures, and duplicate titles
-- Files outside any configured space are silently ignored
+- **A block panel below the frontmatter** for document-level issues: broken links, hierarchy violations, rule violations, and duplicate titles
+
+Validation runs when you open a file and after you edit it.
 
 ## Settings
 
 | Setting | Description |
 |---|---|
-| Config file path | Path to your `sctx config.json`. Leave blank to use default discovery (SCTX_CONFIG env var or standard locations). |
-| Validation debounce | How long to wait after a file is saved before re-validating (default: 1500ms). Increase if validation feels slow on large content sets. |
+| Config source | **Built-in** manages spaces in the plugin's settings. **Custom config file** loads a structured-context `config.json` from a path you give. **System config** finds one the way the `sctx` command does: the `SCTX_CONFIG` environment variable, then `~/.config/structured-context/config.json`. |
+| Spaces | Built-in mode only. Each space has a name, a vault folder and an optional schema file. |
+| Config file path | Custom mode only. Path to a structured-context `config.json`. |
+| Validation debounce (ms) | How long to wait after you stop editing before re-validating (default 1500). Increase it if validation feels slow on large content sets. |
 
 ## Development
 
