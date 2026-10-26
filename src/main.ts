@@ -106,6 +106,12 @@ export default class StructuredContextPlugin extends Plugin {
 		});
 	}
 
+	/** The vault's folder on disk, or null when the vault is not on a local filesystem. */
+	vaultBasePath(): string | null {
+		const adapter = this.app.vault.adapter;
+		return adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
+	}
+
 	/** Build the config from the current settings and use it for validation. */
 	private applyConfig() {
 		const adapter = this.app.vault.adapter;
