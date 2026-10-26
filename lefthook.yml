@@ -2,7 +2,7 @@ pre-commit:
   commands:
     eslint:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
-      run: npx eslint --fix {staged_files}
+      run: npx eslint --fix --no-warn-ignored {staged_files}
       stage_fixed: true
 
 pre-push:
