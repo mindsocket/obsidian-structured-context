@@ -15,8 +15,8 @@ Not yet in the Obsidian community plugins browser. To try it, download `main.js`
 ## Setup
 
 1. Enable the plugin in Obsidian settings.
-2. If you already use [structured-context](https://github.com/mindsocket/structured-context) on the command line, you're done: the plugin uses the same system config.
-3. Otherwise open the plugin's settings and, under **Spaces**, add a space: a name, the vault folder that holds your content, and optionally a schema file in your vault. Without a schema, the bundled `strategy_general.json` is used.
+2. If your vault already has a `.sctx.json` at its root, or you use [structured-context](https://github.com/mindsocket/structured-context) on the command line or in Claude Code, you're done: the plugin finds the same config.
+3. Otherwise open the plugin's settings and, under **Spaces**, add a space: a name, the vault folder that holds your content, and optionally a schema file in your vault. Without a schema, the bundled `strategy_general.json` is used. This creates a `.sctx.json` at the vault root, which the command line and Claude Code read too.
 4. Open a markdown file in that folder.
 
 Files outside every space are ignored. The settings page shows which config is in use and the spaces it defines.
@@ -40,12 +40,12 @@ Validation runs when you open a file and after you edit it. Semantic (AI-judged)
 
 | Setting | Description |
 |---|---|
-| Config source | **Automatic** (the default) uses the system config when it defines spaces, and your built-in spaces otherwise. **Built-in spaces only**, **Custom config file** and **System config only** pick one source. |
-| Spaces | Shown for Automatic and Built-in. Each space has a name, a vault folder and an optional schema file. |
+| Config source | **Automatic** (the default) uses the discovered config when it defines spaces, and your built-in spaces otherwise. **Built-in spaces only**, **Custom config file** and **Discovered config only** pick one source. |
+| Spaces | With a discovered config, its spaces are listed and **Add space** writes to the vault's `.sctx.json`; to rename, change or remove a space, edit that file. With built-in spaces, each has a name, a vault folder and an optional schema file, and **Move to .sctx.json** saves them in the vault's `.sctx.json`. |
 | Config file path | Custom config only. Path to a structured-context `config.json`. |
 | Validation debounce (ms) | How long to wait after you stop editing before re-validating (default 1500). Increase it if validation feels slow on large content sets. |
 
-The system config is the file named by the `SCTX_CONFIG` environment variable, or `~/.config/structured-context/config.json`.
+The discovered config is the file named by the `SCTX_CONFIG` environment variable, otherwise the nearest `.sctx.json` from the vault folder upward, otherwise `~/.config/structured-context/config.json`. Paths in a `.sctx.json` are relative to the folder that holds it, so `"path": "."` is the whole vault.
 
 ## Development
 
