@@ -79,7 +79,7 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 - `manifest.json` — Copied from repo root
 - `styles.css` — Copied from repo root
 
-`npm run install-to-vault` copies this directory to the vault. The plugin writes the embedded schemas into its own folder on load, because structured-context reads them from disk.
+`npm run install-to-vault` copies this directory to the vault. The plugin writes the embedded schemas into a `schemas-<hash>/` folder inside its own folder on load, because structured-context reads them from disk, and removes folders left by other builds.
 
 ## Testing and releasing
 
@@ -87,6 +87,8 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 - `npm run test:smoke` — run after `npm run build`. Mirrors a release install, so a file the plugin needs at runtime but a release lacks fails here.
 - CI (`.github/workflows/test.yml`) runs build, lint, unit tests and the smoke test.
 - Release: `npm version <patch|minor|major>` bumps `manifest.json` and `versions.json`, commits and tags (no `v` prefix, as Obsidian requires). Pushing the tag runs `.github/workflows/release.yml`, which attaches the three files to a GitHub release.
+- First release: the files already say 0.1.0, so tag it directly (`git tag 0.1.0 && git push origin 0.1.0`) rather than running `npm version`, which would make it 0.2.0.
+- `minAppVersion` is the oldest Obsidian whose API the plugin uses (1.4.11, for `AbstractInputSuggest`), not the version of the `obsidian` dev dependency. When using a newer API, check its `@since` in `node_modules/obsidian/obsidian.d.ts` and raise it.
 
 ## Bundling approach and implications
 

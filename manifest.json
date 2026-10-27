@@ -2,7 +2,7 @@
 	"id": "structured-context",
 	"name": "Structured Context",
 	"version": "0.1.0",
-	"minAppVersion": "1.10.3",
+	"minAppVersion": "1.4.11",
 	"description": "Keep your content clean and your thinking clear. Inline validation for schema-governed markdown content.",
 	"author": "Roger Barnes",
 	"authorUrl": "https://github.com/mindsocket/obsidian-structured-context",
