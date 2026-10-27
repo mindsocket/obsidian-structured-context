@@ -1,16 +1,19 @@
-import { loadConfig, resolveConfigPath, setConfigPath, type Config } from "structured-context/api";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { LOCAL_CONFIG_FILE, loadConfig, resolveConfigPath, setConfigPath, type Config } from "structured-context/api";
 
 /** Bundled schema given to spaces added without one; structured-context requires an explicit schema. */
 export const DEFAULT_SCHEMA = "strategy_general.json";
 
 /**
  * Where the space configuration comes from.
+ * - vault: the .sctx.json at the vault root, and nothing else. Spaces added from the plugin are written to it.
  * - discovered: the config structured-context discovers: SCTX_CONFIG, then the nearest .sctx.json walking up from
  *   the vault folder, then the global config. Spaces added from the plugin are written to the vault's .sctx.json.
  * - custom: a structured-context config file at a chosen path
  */
-export type ConfigMode = "discovered" | "custom";
-export const CONFIG_MODES: ConfigMode[] = ["discovered", "custom"];
+export type ConfigMode = "vault" | "discovered" | "custom";
+export const CONFIG_MODES: ConfigMode[] = ["vault", "discovered", "custom"];
 
 export interface SpaceSetting {
 	name: string;
@@ -68,6 +71,7 @@ export function resolveConfig(
 	basePath: string | null,
 	loader: ConfigLoader = loadFromDisk,
 	locate: ConfigLocator = locateOnDisk,
+	exists: (file: string) => boolean = existsSync,
 ): ResolvedConfig {
 	const { configMode, configPath } = settings;
 	const startDir = basePath ?? undefined;
@@ -77,6 +81,11 @@ export function resolveConfig(
 			return { config: { spaces: [] }, source: "custom", error: "No config file path is set." };
 		}
 		return { ...load(configPath, startDir, loader), source: "custom", file: configPath };
+	}
+	if (configMode === "vault") {
+		const file = basePath ? join(basePath, LOCAL_CONFIG_FILE) : undefined;
+		if (!file || !exists(file)) return { config: { spaces: [] }, source: "vault" };
+		return { ...load(file, startDir, loader), source: "vault", file };
 	}
 	// With no config file anywhere there is nothing to load or report: the first added space creates one
 	const file = locate(startDir);

@@ -38,3 +38,8 @@
 .sctx-glyph {
 	color: var(--sctx-color);
 }
+
+/* A space defined outside the current vault validates nothing here */
+.sctx-outside-vault {
+	opacity: 0.6;
+}

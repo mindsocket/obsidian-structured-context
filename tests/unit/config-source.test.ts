@@ -65,3 +65,31 @@ describe("discovered config", () => {
 		assert.equal(resolveConfig(settings(), BASE, failing, found).error, "bad json");
 	});
 });
+
+describe("vault config", () => {
+	const vaultFile = join(BASE, ".sctx.json");
+
+	it("loads only the .sctx.json at the vault root, ignoring any discovered config", () => {
+		let asked: string | undefined;
+		const loader: ConfigLoader = (path) => ((asked = path), discoveredConfig);
+		const result = resolveConfig(settings({ configMode: "vault" }), BASE, loader, () => "/elsewhere/.sctx.json", () => true);
+		assert.equal(asked, vaultFile);
+		assert.equal(result.source, "vault");
+		assert.equal(result.file, vaultFile);
+	});
+
+	it("has no spaces and no error until the file exists", () => {
+		const result = resolveConfig(settings({ configMode: "vault" }), BASE, failing, found, () => false);
+		assert.deepEqual(result.config.spaces, []);
+		assert.equal(result.error, undefined);
+		assert.equal(result.file, undefined);
+	});
+
+	it("reports a vault config that fails to load", () => {
+		assert.equal(resolveConfig(settings({ configMode: "vault" }), BASE, failing, found, () => true).error, "bad json");
+	});
+
+	it("has no spaces when the vault has no filesystem path", () => {
+		assert.deepEqual(resolveConfig(settings({ configMode: "vault" }), null, failing).config.spaces, []);
+	});
+});

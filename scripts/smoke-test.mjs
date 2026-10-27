@@ -61,6 +61,11 @@ try {
 	assert.equal(discovered.resolvedConfig.file, join(vault, ".sctx.json"));
 	await check(discovered, "vault .sctx.json");
 
+	const vaultMode = await load({ configMode: "vault" });
+	assert.equal(vaultMode.resolvedConfig.source, "vault");
+	assert.equal(vaultMode.resolvedConfig.file, join(vault, ".sctx.json"));
+	await check(vaultMode, "vault mode");
+
 	// The schemas offered when adding a space come from structured-context's listSchemas
 	const offered = await (await load({ configMode: "discovered" })).availableSchemas();
 	assert.ok(offered.some(l => l.source === "core" && l.schema === "strategy_general.json" && !l.partial), "bundled schemas were not listed");

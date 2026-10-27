@@ -1,6 +1,6 @@
 import { App, AbstractInputSuggest, Modal, Notice, PluginSettingTab, Setting, TextComponent, TFolder } from "obsidian";
 import type StructuredContextPlugin from "./main";
-import { resolve } from "node:path";
+import { relative, resolve, isAbsolute } from "node:path";
 import type { ConfigMode, ConfigSettings, SpaceSetting } from "./config-source";
 import { addSpaceToVaultConfig, vaultConfigPath } from "./vault-config";
 
@@ -156,7 +156,8 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 			.setName("Config source")
 			.setDesc("Where the spaces to validate come from.")
 			.addDropdown(drop => drop
-				.addOption("discovered", "Discovered config (recommended)")
+				.addOption("vault", "Vault config (.sctx.json at the vault root)")
+				.addOption("discovered", "Discovered config (as the command line finds it)")
 				.addOption("custom", "Custom config file")
 				.setValue(this.plugin.settings.configMode)
 				.onChange(async (value: string) => {
@@ -170,8 +171,10 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 
 		const { configMode } = this.plugin.settings;
 
-		if (configMode === "discovered") {
-			this.renderDiscoveredSection(containerEl);
+		if (configMode === "vault") {
+			this.renderSpaces(containerEl, true);
+		} else if (configMode === "discovered") {
+			this.renderSpaces(containerEl, false);
 		} else {
 			this.renderCustomSection(containerEl);
 		}
@@ -192,20 +195,26 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 			);
 	}
 
-	private renderDiscoveredSection(containerEl: HTMLElement): void {
+	/** The config's spaces, then what can be done to them. `vaultOnly` is the vault's own .sctx.json. */
+	private renderSpaces(containerEl: HTMLElement, vaultOnly: boolean): void {
 		new Setting(containerEl).setName("Spaces").setHeading();
-		containerEl.createEl("p", { text: SYSTEM_CONFIG_HELP, cls: "setting-item-description" });
-
-		const { config, file } = this.plugin.resolvedConfig;
-		for (const space of config.spaces) {
-			new Setting(containerEl).setName(space.name).setDesc(space.path);
-		}
+		if (!vaultOnly) containerEl.createEl("p", { text: SYSTEM_CONFIG_HELP, cls: "setting-item-description" });
 
 		const base = this.plugin.vaultBasePath();
+		const { config, file } = this.plugin.resolvedConfig;
+		for (const space of config.spaces) {
+			const outside = base !== null && this.isOutsideVault(base, space.path);
+			const setting = new Setting(containerEl)
+				.setName(space.name)
+				.setDesc(outside ? `${space.path} · outside this vault` : space.path);
+			if (outside) setting.settingEl.addClass("sctx-outside-vault");
+		}
+
+		const isVaultConfig = base !== null && (!file || resolve(file) === resolve(vaultConfigPath(base)));
 		if (!file) {
 			containerEl.createEl("p", { text: "No config found. Add a space to create a .sctx.json in your vault.", cls: "setting-item-description" });
 		}
-		if (base && (!file || resolve(file) === resolve(vaultConfigPath(base)))) {
+		if (isVaultConfig) {
 			new Setting(containerEl)
 				.addButton(btn => btn
 					.setButtonText("Add space")
@@ -215,13 +224,21 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 				containerEl.createEl("p", { text: "To rename, change or remove a space, edit .sctx.json in your vault.", cls: "setting-item-description" });
 			}
 		} else if (file) {
-			containerEl.createEl("p", { text: "To change these spaces, edit that file.", cls: "setting-item-description" });
+			containerEl.createEl("p", {
+				text: `To change these spaces, edit that file. To keep this vault's spaces in its own .sctx.json, change the config source to the vault config.`,
+				cls: "setting-item-description",
+			});
 		}
+	}
+
+	private isOutsideVault(base: string, path: string): boolean {
+		const rel = relative(base, path);
+		return rel.startsWith("..") || isAbsolute(rel);
 	}
 
 	private renderStatus(containerEl: HTMLElement): void {
 		const { source, config, error, file } = this.plugin.resolvedConfig;
-		const names = { custom: "custom config file", discovered: "discovered config" };
+		const names = { vault: "vault config", custom: "custom config file", discovered: "discovered config" };
 		const count = config.spaces.length;
 		const summary = count === 0
 			? `Using ${names[source]}${file ? ` (${file})` : ""}: no spaces defined, so nothing is validated.`
