@@ -20,8 +20,17 @@ const GLYPH: Record<Severity, string> = { error: "✖", warning: "⚠", info: "�
 
 const SCHEMA_ERROR_PREFIX = "schema:/" as const;
 
+/** The markdown plugin's fieldMap for a space: a file's frontmatter key → the schema's field name. */
+export type FieldMap = Record<string, string>;
+
+/** A validation result to show, with the fieldMap that maps its field names back to the note's own keys. */
+export interface ShownResult {
+	result: FileValidationResult;
+	fieldMap?: FieldMap;
+}
+
 export const setValidationResult =
-	StateEffect.define<FileValidationResult | null>();
+	StateEffect.define<ShownResult | null>();
 
 export interface PlannedIssue {
 	severity: Severity;
@@ -151,14 +160,16 @@ function collectIssues(result: FileValidationResult): Array<{ key: string; issue
 	return out;
 }
 
-export function planDecorations(doc: Text, result: FileValidationResult): DecorationPlan {
+export function planDecorations(doc: Text, result: FileValidationResult, fieldMap: FieldMap = {}): DecorationPlan {
 	const fm = parseFrontmatter(doc);
+	// Issues name the schema's fields; the note may use other keys for them
+	const fileKey = new Map(Object.entries(fieldMap).map(([file, canonical]) => [canonical, file]));
 	const byLine = new Map<number, PlannedIssue[]>();
 	const panel: PlannedIssue[] = [];
 
 	for (const { key, issue } of collectIssues(result)) {
 		const prop = extractProperty(key);
-		const lineNum = prop ? fm?.propertyLines.get(prop) : undefined;
+		const lineNum = prop ? fm?.propertyLines.get(fileKey.get(prop) ?? prop) : undefined;
 		if (lineNum === undefined) {
 			panel.push(issue);
 		} else {
@@ -175,8 +186,8 @@ export function planDecorations(doc: Text, result: FileValidationResult): Decora
 	};
 }
 
-function buildDecorations(doc: Text, result: FileValidationResult): DecorationSet {
-	const plan = planDecorations(doc, result);
+function buildDecorations(doc: Text, { result, fieldMap }: ShownResult): DecorationSet {
+	const plan = planDecorations(doc, result, fieldMap);
 	const builder = new RangeSetBuilder<Decoration>();
 
 	// RangeSetBuilder requires ranges in non-decreasing `from` order, which the plan's line order gives

@@ -7,7 +7,7 @@ import { resolveConfig, type ResolvedConfig } from "./config-source";
 import { writeSchemaFiles } from "./schema-files";
 import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
 import { Validator } from "./validator";
-import { setValidationResult, validationField } from "./editor-extension";
+import { type FieldMap, setValidationResult, validationField } from "./editor-extension";
 
 function isMarkdown(path: string): boolean {
 	return path.endsWith(".md");
@@ -38,7 +38,7 @@ export default class StructuredContextPlugin extends Plugin {
 			console.error("[structured-context] Could not write bundled schemas:", e);
 		}
 
-		this.applyConfig();
+		this.refreshConfig();
 
 		this.registerEditorExtension([validationField]);
 
@@ -96,7 +96,7 @@ export default class StructuredContextPlugin extends Plugin {
 	private async validateFile(file: TFile, view: MarkdownView) {
 		// The config file can be edited outside Obsidian at any time, and Obsidian does not report changes to
 		// dotfiles, so discover it afresh on every validation. It is a few small JSON reads.
-		this.applyConfig();
+		this.refreshConfig();
 		const run = ++this.validationRun;
 
 		const absolutePath = join(this.vaultBasePath(), file.path);
@@ -119,8 +119,14 @@ export default class StructuredContextPlugin extends Plugin {
 		if (!cmView) return;
 
 		cmView.dispatch({
-			effects: setValidationResult.of(result),
+			effects: setValidationResult.of(result && { result, fieldMap: this.fieldMapOf(result.space) }),
 		});
+	}
+
+	/** The markdown plugin's fieldMap for a space. structured-context stores plugin names with their prefix. */
+	private fieldMapOf(spaceName: string): FieldMap | undefined {
+		const plugins = this.resolvedConfig.config.spaces.find(s => s.name === spaceName)?.plugins;
+		return plugins?.["sctx-markdown"]?.fieldMap as FieldMap | undefined;
 	}
 
 	/** Show a notice unless it repeats the last one; a broken schema would otherwise raise one per edit. */
@@ -146,7 +152,7 @@ export default class StructuredContextPlugin extends Plugin {
 	}
 
 	/** Discover the config and use it for validation. */
-	private applyConfig() {
+	refreshConfig() {
 		this.resolvedConfig = resolveConfig(this.vaultBasePath());
 		this.validator = new Validator(this.resolvedConfig.config);
 		if (this.resolvedConfig.error) {
@@ -162,7 +168,7 @@ export default class StructuredContextPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		this.applyConfig();
+		this.refreshConfig();
 		// The open note may now be in a different space, or none
 		void this.validateActive();
 	}

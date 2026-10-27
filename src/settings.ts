@@ -159,6 +159,8 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
+		// The config file can change outside Obsidian; show it as it is now
+		this.plugin.refreshConfig();
 		const { containerEl } = this;
 		containerEl.empty();
 		containerEl.createEl("p", {

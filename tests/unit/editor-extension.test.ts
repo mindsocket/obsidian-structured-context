@@ -29,6 +29,13 @@ describe("planDecorations", () => {
 		assert.deepEqual(plan.panel, []);
 	});
 
+	it("places an issue on the note's own key for a field renamed by fieldMap", () => {
+		const doc = Text.of(["---", "record_type: goal", "title: T", "---"]);
+		const plan = planDecorations(doc, result({ "schema:/type:enum": issue("type: must be one of") }), { record_type: "type" });
+		assert.deepEqual(plan.lines.map(l => l.line), [2]);
+		assert.deepEqual(plan.panel, []);
+	});
+
 	it("reads the property from nested and constraint-suffixed schema keys", () => {
 		const plan = planDecorations(
 			DOC,
@@ -117,12 +124,12 @@ describe("validationField", () => {
 
 	it("adds a line highlight, an inline widget per issue and a block panel, in document order", () => {
 		const state = start().update({
-			effects: setValidationResult.of(
-				result(
+			effects: setValidationResult.of({
+				result: result(
 					{ "schema:/status:a": issue("err"), "rule:r": issue("rule", { kind: "rule" }) },
 					{ "schema:/status:b": issue("warn") },
 				),
-			),
+			}),
 		}).state;
 		const ranges = rangesOf(state);
 		assert.equal(ranges.filter(r => r.cls === "sctx-issue-line sctx-error").length, 1);
@@ -133,7 +140,7 @@ describe("validationField", () => {
 
 	it("clears when the result is null", () => {
 		const withIssues = start().update({
-			effects: setValidationResult.of(result({ "rule:r": issue("rule", { kind: "rule" }) })),
+			effects: setValidationResult.of({ result: result({ "rule:r": issue("rule", { kind: "rule" }) }) }),
 		}).state;
 		assert.equal(rangesOf(withIssues).length, 1);
 		assert.deepEqual(rangesOf(withIssues.update({ effects: setValidationResult.of(null) }).state), []);
@@ -141,7 +148,7 @@ describe("validationField", () => {
 
 	it("tints a line by its worst severity", () => {
 		const state = start().update({
-			effects: setValidationResult.of(result({}, { "schema:/status:b": issue("warn") })),
+			effects: setValidationResult.of({ result: result({}, { "schema:/status:b": issue("warn") }) }),
 		}).state;
 		assert.ok(rangesOf(state).some(r => r.cls === "sctx-issue-line sctx-warning"));
 	});
