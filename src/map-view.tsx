@@ -2,12 +2,11 @@ import { FileSystemAdapter, ItemView, Notice, type ViewStateResult, type Workspa
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { useEffect, useMemo, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { assembleSpaceGraph, createSpaceContext, type Config, type SpaceNode } from "structured-context/api";
+import { assembleSpaceGraph, createSpaceContext, type Config, type SpaceGraph, type SpaceNode } from "structured-context/api";
 import {
 	type MapViewDefinition,
 	mapViewsForSchema,
 	type ParameterValues,
-	type SpaceData,
 	selectionFilter,
 } from "structured-context-navigator/map-views/core";
 import { MapView, ParameterControls } from "structured-context-navigator/map-views/layouts";
@@ -123,11 +122,12 @@ function loadMapViews({ config, file }: ResolvedConfig): MapViewDefinition[] {
 	});
 }
 
+type Space = { schemaId: string | undefined; graph: SpaceGraph };
+
 /** Load a space, narrowed by a filter (a view name or expression) when one is given. */
-async function loadSpaceData(spaceName: string, config: Config, filter?: string): Promise<SpaceData> {
+async function loadSpace(spaceName: string, config: Config, filter?: string): Promise<Space> {
 	const context = createSpaceContext(spaceName, config);
-	const graph = await assembleSpaceGraph(context, { filter });
-	return { space: spaceName, schemaId: context.schema.$id, hierarchy: graph.hierarchy, nodes: [...graph.nodes.values()] };
+	return { schemaId: context.schema.$id, graph: await assembleSpaceGraph(context, { filter }) };
 }
 
 function MapViewHost({
@@ -144,8 +144,8 @@ function MapViewHost({
 	const { config } = resolved;
 	const spaceName = state.space ?? "";
 	// The whole space, for its schema; then the space as the map view's filter selects it.
-	const [data, setData] = useState<SpaceData>();
-	const [selection, setSelection] = useState<{ filter: string; data: SpaceData }>();
+	const [data, setData] = useState<Space>();
+	const [selection, setSelection] = useState<{ filter: string; data: Space }>();
 	const { definitions, definitionsError } = useMemo(() => {
 		try {
 			return { definitions: loadMapViews(resolved), definitionsError: undefined };
@@ -160,7 +160,7 @@ function MapViewHost({
 		setError(undefined);
 		if (!spaceName) return;
 		let current = true;
-		loadSpaceData(spaceName, config).then(
+		loadSpace(spaceName, config).then(
 			(d) => current && setData(d),
 			(e) => current && setError(e instanceof Error ? e.message : String(e)),
 		);
@@ -178,7 +178,7 @@ function MapViewHost({
 		setSelection(undefined);
 		if (!spaceName || !filter) return;
 		let current = true;
-		loadSpaceData(spaceName, config, filter).then(
+		loadSpace(spaceName, config, filter).then(
 			(d) => current && setSelection({ filter, data: d }),
 			(e) => current && setError(e instanceof Error ? e.message : String(e)),
 		);
@@ -243,7 +243,7 @@ function MapViewHost({
 			{error && <p className="sctx-map-view-error">{error}</p>}
 			{data && !definition && <p>No map view applies to this space's schema.</p>}
 			<div className="sctx-map-view-body">
-				{shown && definition && <MapView definition={definition} data={shown} values={values} onNodeSelect={openNode} />}
+				{shown && definition && <MapView definition={definition} graph={shown.graph} values={values} onNodeSelect={openNode} />}
 			</div>
 		</div>
 	);
