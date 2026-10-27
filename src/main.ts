@@ -1,23 +1,13 @@
 import { FileSystemAdapter, Notice, Plugin, MarkdownView, TAbstractFile, TFile } from "obsidian";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import bundledSchemas from "virtual:bundled-schemas";
 import { listSchemas, setBundledSchemasDir } from "structured-context/api";
 import { EditorView } from "@codemirror/view";
 import { resolveConfig, type ResolvedConfig } from "./config-source";
+import { writeSchemaFiles } from "./schema-files";
 import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
 import { Validator } from "./validator";
 import { setValidationResult, validationField } from "./editor-extension";
-
-/** Write the schemas embedded at build time into dir, touching only files that are missing or changed. */
-function writeBundledSchemas(dir: string) {
-	for (const [relPath, contents] of Object.entries(bundledSchemas)) {
-		const file = join(dir, relPath);
-		if (existsSync(file) && readFileSync(file, "utf8") === contents) continue;
-		mkdirSync(dirname(file), { recursive: true });
-		writeFileSync(file, contents);
-	}
-}
 
 function isMarkdown(path: string): boolean {
 	return path.endsWith(".md");
@@ -41,9 +31,13 @@ export default class StructuredContextPlugin extends Plugin {
 		// structured-context reads its bundled schemas from disk, so write them next to the plugin
 		if (this.app.vault.adapter instanceof FileSystemAdapter && this.manifest.dir) {
 			const pluginDir = join(this.app.vault.adapter.getBasePath(), this.manifest.dir);
-			const schemasDir = join(pluginDir, "schemas");
-			writeBundledSchemas(schemasDir);
-			setBundledSchemasDir(schemasDir);
+			try {
+				setBundledSchemasDir(writeSchemaFiles(pluginDir, bundledSchemas));
+			} catch (e) {
+				const msg = e instanceof Error ? e.message : String(e);
+				this.notifyOnce(`Structured Context could not write its schemas to ${pluginDir}: ${msg}. Validation will fail until it can.`);
+				console.error("[structured-context] Could not write bundled schemas:", e);
+			}
 		}
 
 		this.applyConfig();
