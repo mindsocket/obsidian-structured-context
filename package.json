@@ -30,7 +30,7 @@
 		"lefthook": "^2.1.4",
 		"obsidian": "1.10.3",
 		"structured-context": "^0.17.0",
-		"structured-context-navigator": "file:../structured-context-extensions/apps/structured-context-navigator",
+		"structured-context-navigator": "file:../structured-context-map-views",
 		"tslib": "2.4.0",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "8.35.1"
