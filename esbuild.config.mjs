@@ -126,11 +126,13 @@ const context = await esbuild.context({
 		"@lezer/highlight",
 		"@lezer/lr",
 		...builtinModules],
-	// PROTOTYPE: map-views comes through a file: dependency, whose imports resolve from the navigator's own
-	// node_modules. Pin React to this plugin's copy so the bundle has a single React instance.
+	// PROTOTYPE: map-views comes through a file: dependency, whose imports resolve from its own node_modules.
+	// Pin React and structured-context to this plugin's copies so the bundle has one of each. An aliased path
+	// resolves from the working directory, so a bare package name here means this plugin's copy.
 	alias: {
 		"react": resolve(configDir, "node_modules/react"),
 		"react-dom": resolve(configDir, "node_modules/react-dom"),
+		"structured-context": "structured-context",
 	},
 	define: {
 		"process.env.NODE_ENV": JSON.stringify(prod ? "production" : "development"),
