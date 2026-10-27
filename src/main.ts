@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import bundledSchemas from "virtual:bundled-schemas";
 import { listSchemas, setBundledSchemasDir } from "structured-context/api";
 import { EditorView } from "@codemirror/view";
-import { CONFIG_MODES, resolveConfig, type ResolvedConfig } from "./config-source";
+import { resolveConfig, type ResolvedConfig } from "./config-source";
 import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
 import { Validator } from "./validator";
 import { setValidationResult, validationField } from "./editor-extension";
@@ -122,11 +122,11 @@ export default class StructuredContextPlugin extends Plugin {
 		return adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
 	}
 
-	/** Build the config from the current settings and use it for validation. */
+	/** Discover the config and use it for validation. */
 	private applyConfig() {
 		const adapter = this.app.vault.adapter;
 		const basePath = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
-		this.resolvedConfig = resolveConfig(this.settings, basePath);
+		this.resolvedConfig = resolveConfig(basePath);
 		this.validator = new Validator(this.resolvedConfig.config);
 		if (this.resolvedConfig.error) {
 			new Notice(`Structured Context config problem: ${this.resolvedConfig.error}`);
@@ -137,9 +137,6 @@ export default class StructuredContextPlugin extends Plugin {
 	async loadSettings() {
 		const saved = (await this.loadData()) as Partial<PluginSettings> | null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved ?? {});
-		if (!CONFIG_MODES.includes(this.settings.configMode)) {
-			this.settings.configMode = DEFAULT_SETTINGS.configMode;
-		}
 	}
 
 	async saveSettings() {

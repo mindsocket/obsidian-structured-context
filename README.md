@@ -40,12 +40,10 @@ Validation runs when you open a file and after you edit it. Semantic (AI-judged)
 
 | Setting | Description |
 |---|---|
-| Config source | **Discovered config** (the default) is the config the command line finds. **Vault config** uses only the `.sctx.json` at the vault root, ignoring any other config. **Custom config file** uses a file you choose. |
-| Spaces | The config's spaces are listed; those outside this vault are dimmed. With the vault config, or when no config exists yet, **Add space** (a name, a vault folder and an optional schema) writes to the vault's `.sctx.json`, creating it if needed. To rename, change or remove a space, edit that file. |
-| Config file path | Custom config only. Path to a structured-context `config.json`. |
+| Spaces | The spaces of the config the command line finds; those outside this vault are dimmed. **Add space** (a name, a vault folder and an optional schema) saves to that config, or creates a `.sctx.json` at the vault root when there is none. When the config is elsewhere, such as your global one, **Save to new vault-level config** creates the vault's own `.sctx.json` instead, which then takes over from it. To rename, change or remove a space, edit the config file. |
 | Validation debounce (ms) | How long to wait after you stop editing before re-validating (default 1500). Increase it if validation feels slow on large content sets. |
 
-The discovered config is the file named by the `SCTX_CONFIG` environment variable, otherwise the nearest `.sctx.json` from the vault folder upward, otherwise `~/.config/structured-context/config.json`. Paths in a `.sctx.json` are relative to the folder that holds it, so `"path": "."` is the whole vault.
+The config is the nearest `.sctx.json` from the vault folder upward, otherwise `~/.config/structured-context/config.json`. Paths in a `.sctx.json` are relative to the folder that holds it, so `"path": "."` is the whole vault.
 
 ## Development
 

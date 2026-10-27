@@ -49,8 +49,8 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 - `src/main.ts` — Plugin entry point, event handlers, debouncing
 - `src/validator.ts` — Wraps `validateFile()` from structured-context, caches config
 - `src/editor-extension.ts` — CM6 StateField for validation decorations. `planDecorations` decides what to draw (error, warning and info); it is pure and unit-tested
-- `src/config-source.ts` — Chooses the config from settings: the vault's `.sctx.json` only, discovered (SCTX_CONFIG, nearest `.sctx.json`, then the global config) or a custom file. No Obsidian imports, so it is unit-tested
-- `src/settings.ts` — Plugin settings UI (config source, spaces listed from the config and added to the vault's `.sctx.json`, debounce)
+- `src/config-source.ts` — Finds the config structured-context discovers from the vault folder. No Obsidian imports, so it is unit-tested
+- `src/settings.ts` — Plugin settings UI (spaces listed from the config and added to it, debounce)
 - `esbuild.config.mjs` — Build config; embeds structured-context's schemas (`virtual:bundled-schemas`) and copies manifest.json and styles.css to `dist/`
 - `scripts/smoke-test.mjs` — Installs the release files into a throwaway vault and validates fixture notes (`tests/smoke/`) with `obsidian` stubbed
 
@@ -58,7 +58,7 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 
 1. **Plugin load** (`onload`):
    - Calls `setBundledSchemasDir()` to point to bundled schemas
-   - Resolves the config from settings (`resolveConfig`) and creates the Validator with it; a settings change rebuilds both and revalidates the open note
+   - Discovers the config (`resolveConfig`) and creates the Validator with it; adding a space rebuilds both and revalidates the open note
    - Registers CM6 extension
    - Sets up event handlers for file open/modify
 
