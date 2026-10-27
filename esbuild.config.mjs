@@ -10,8 +10,8 @@ const require = createRequire(import.meta.url);
 const configDir = dirname(fileURLToPath(import.meta.url));
 const apiEntry = require.resolve('structured-context/api');
 const sctxRoot = resolve(dirname(apiEntry), '..');
-// PROTOTYPE: map view definitions are read at runtime from the navigator app's checkout; definition
-// discovery and distribution are undesigned.
+// PROTOTYPE: the library's bundled map view definitions are read at runtime from its checkout. A release
+// needs them embedded, like structured-context's schemas (structured-context-map-views#2).
 const mapViewsDir = resolve(realpathSync(resolve(configDir, "node_modules/structured-context-navigator")), "map-views");
 
 /** Every file under dir, as { path relative to dir: contents }. */

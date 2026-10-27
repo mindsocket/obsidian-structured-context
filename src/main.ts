@@ -43,7 +43,7 @@ export default class StructuredContextPlugin extends Plugin {
 
 		this.registerEditorExtension([validationField]);
 
-		this.registerView(MAP_VIEW_TYPE, (leaf) => new MapViewPane(leaf));
+		this.registerView(MAP_VIEW_TYPE, (leaf) => new MapViewPane(leaf, () => this.resolvedConfig));
 		this.addCommand({
 			id: "open-map-view",
 			name: "Open map view",

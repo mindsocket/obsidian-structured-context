@@ -1,20 +1,20 @@
 import { FileSystemAdapter, ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
-import { readdirSync, readFileSync } from "node:fs";
-import { basename, isAbsolute, join, relative } from "node:path";
-import { useEffect, useState } from "react";
+import { dirname, isAbsolute, join, relative } from "node:path";
+import { useEffect, useMemo, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { assembleSpaceGraph, createSpaceContext, loadConfig, type Config, type SpaceNode } from "structured-context/api";
+import { assembleSpaceGraph, createSpaceContext, type Config, type SpaceNode } from "structured-context/api";
 import {
 	type MapViewDefinition,
 	mapViewsForSchema,
 	type ParameterValues,
-	parseMapViewDefinition,
 	type SpaceData,
 	selectionFilter,
 } from "structured-context-navigator/map-views/core";
 import { MapView, ParameterControls } from "structured-context-navigator/map-views/layouts";
+import { loadMapViewDefinitions } from "structured-context-navigator/map-views/node";
+import type { ResolvedConfig } from "./config-source";
 
-/** Absolute path of the map view definitions directory, injected by the build (esbuild `define`). */
+/** Absolute path of the library's bundled definitions, injected by the build (esbuild `define`). */
 declare const SCTX_MAP_VIEWS_DIR: string;
 
 export const MAP_VIEW_TYPE = "structured-context-map-view";
@@ -23,7 +23,7 @@ export const MAP_VIEW_TYPE = "structured-context-map-view";
 type PaneState = {
 	space?: string;
 	mapView?: string;
-	/** Parameter values per map view name. */
+	/** Parameter values per map view id. */
 	values?: Record<string, ParameterValues>;
 };
 
@@ -31,10 +31,13 @@ type PaneState = {
 export class MapViewPane extends ItemView {
 	private root: Root | null = null;
 	private state: PaneState = {};
-	// Loaded once: the host reloads the space whenever the config object changes.
-	private config: Config | null = null;
+	// Read once on open: the host reloads the space whenever the config object changes.
+	private resolved: ResolvedConfig | null = null;
 
-	constructor(leaf: WorkspaceLeaf) {
+	constructor(
+		leaf: WorkspaceLeaf,
+		private readonly getConfig: () => ResolvedConfig,
+	) {
 		super(leaf);
 	}
 
@@ -52,8 +55,7 @@ export class MapViewPane extends ItemView {
 
 	async onOpen() {
 		this.contentEl.addClass("sctx-map-view");
-		// PROTOTYPE: always uses the system config; should follow the plugin's config settings.
-		this.config = loadConfig();
+		this.resolved = this.getConfig();
 		this.root = createRoot(this.contentEl);
 		this.renderHost();
 	}
@@ -69,10 +71,10 @@ export class MapViewPane extends ItemView {
 	}
 
 	private renderHost() {
-		if (!this.config) return;
+		if (!this.resolved) return;
 		this.root?.render(
 			<MapViewHost
-				config={this.config}
+				resolved={this.resolved}
 				state={this.state}
 				onStateChange={(state) => {
 					this.state = state;
@@ -113,13 +115,12 @@ function toPaneState(state: unknown): PaneState {
 	};
 }
 
-/** Read map view definitions from the definitions directory injected at build time. */
-function loadMapViews(): MapViewDefinition[] {
-	const dir = SCTX_MAP_VIEWS_DIR;
-	return readdirSync(dir)
-		.filter((file) => file.endsWith(".json5"))
-		.sort()
-		.map((file) => parseMapViewDefinition(basename(file, ".json5"), readFileSync(join(dir, file), "utf8")));
+/** The definitions bundled with the library, in plugins and next to the config file. */
+function loadMapViews({ config, file }: ResolvedConfig): MapViewDefinition[] {
+	return loadMapViewDefinitions(config, {
+		...(file && { configDir: dirname(file) }),
+		bundledDir: SCTX_MAP_VIEWS_DIR,
+	});
 }
 
 /** Load a space, narrowed by a filter (a view name or expression) when one is given. */
@@ -130,27 +131,28 @@ async function loadSpaceData(spaceName: string, config: Config, filter?: string)
 }
 
 function MapViewHost({
-	config,
+	resolved,
 	state,
 	onStateChange,
 	onOpenSource,
 }: {
-	config: Config;
+	resolved: ResolvedConfig;
 	state: PaneState;
 	onStateChange: (state: PaneState) => void;
 	onOpenSource: (absolutePath: string) => void;
 }) {
+	const { config } = resolved;
 	const spaceName = state.space ?? "";
 	// The whole space, for its schema; then the space as the map view's filter selects it.
 	const [data, setData] = useState<SpaceData>();
 	const [selection, setSelection] = useState<{ filter: string; data: SpaceData }>();
-	const [{ definitions, definitionsError }] = useState(() => {
+	const { definitions, definitionsError } = useMemo(() => {
 		try {
-			return { definitions: loadMapViews(), definitionsError: undefined };
+			return { definitions: loadMapViews(resolved), definitionsError: undefined };
 		} catch (e) {
 			return { definitions: [], definitionsError: e instanceof Error ? e.message : String(e) };
 		}
-	});
+	}, [resolved]);
 	const [error, setError] = useState<string>();
 
 	useEffect(() => {
@@ -168,8 +170,8 @@ function MapViewHost({
 	}, [config, spaceName]);
 
 	const available = mapViewsForSchema(definitions, data?.schemaId);
-	const definition = available.find((d) => d.name === state.mapView) ?? available[0];
-	const values = definition ? state.values?.[definition.name] : undefined;
+	const definition = available.find((d) => d.id === state.mapView) ?? available[0];
+	const values = definition ? state.values?.[definition.id] : undefined;
 	const filter = definition ? selectionFilter(definition, values) : undefined;
 
 	useEffect(() => {
@@ -191,7 +193,7 @@ function MapViewHost({
 		if (!definition) return;
 		onStateChange({
 			...state,
-			values: { ...state.values, [definition.name]: { ...values, [name]: value } },
+			values: { ...state.values, [definition.id]: { ...values, [name]: value } },
 		});
 	};
 
@@ -220,12 +222,12 @@ function MapViewHost({
 				{available.length > 0 && (
 					<select
 						className="dropdown"
-						value={definition?.name}
+						value={definition?.id}
 						onChange={(e) => onStateChange({ ...state, mapView: e.target.value })}
 						aria-label="Map view"
 					>
 						{available.map((d) => (
-							<option key={d.name} value={d.name}>
+							<option key={d.id} value={d.id}>
 								{d.title}
 							</option>
 						))}
