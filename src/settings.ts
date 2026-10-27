@@ -89,7 +89,7 @@ class AddSpaceModal extends Modal {
 
 		new Setting(contentEl)
 			.setName("Name")
-			.setDesc("Unique identifier: lowercase letters, numbers, hyphens, underscores")
+			.setDesc("Lowercase letters, numbers, hyphens and underscores")
 			.addText(text => { this.nameInput = text; });
 
 		new Setting(contentEl)
@@ -102,7 +102,7 @@ class AddSpaceModal extends Modal {
 
 		new Setting(contentEl)
 			.setName("Schema")
-			.setDesc("Choose a bundled or plugin schema, or a JSON schema file in your vault. Leave empty for the default, strategy_general.json.")
+			.setDesc("A bundled or plugin schema, or a JSON file in your vault. Default: strategy_general.json")
 			.addText(text => {
 				this.schemaInput = text;
 				new SchemaSuggest(this.app, text.inputEl, this.schemas);
@@ -150,8 +150,6 @@ class AddSpaceModal extends Modal {
 	}
 }
 
-const SYSTEM_CONFIG_HELP = "Spaces come from the nearest .sctx.json from the vault folder upward, otherwise from ~/.config/structured-context/config.json.";
-
 export class StructuredContextSettingTab extends PluginSettingTab {
 	plugin: StructuredContextPlugin;
 
@@ -173,7 +171,7 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Validation debounce (ms)")
-			.setDesc("How long to wait after saving before re-validating. Increase if validation feels slow on large content sets.")
+			.setDesc("Wait after an edit before re-validating")
 			.addText(text => text
 				.setValue(String(this.plugin.settings.debounceMs))
 				.onChange(async value => {
@@ -189,7 +187,6 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 
 	private renderSpaces(containerEl: HTMLElement): void {
 		new Setting(containerEl).setName("Spaces").setHeading();
-		containerEl.createEl("p", { text: SYSTEM_CONFIG_HELP, cls: "setting-item-description" });
 
 		const base = this.plugin.vaultBasePath();
 		for (const space of this.plugin.resolvedConfig.config.spaces) {
@@ -200,9 +197,6 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 			if (outside) setting.settingEl.addClass("sctx-outside-vault");
 		}
 
-		if (!this.plugin.resolvedConfig.file) {
-			containerEl.createEl("p", { text: "No config found. Adding a space creates a .sctx.json in your vault.", cls: "setting-item-description" });
-		}
 		if (base) {
 			new Setting(containerEl)
 				.addButton(btn => btn
@@ -210,7 +204,6 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 					.onClick(() => void this.openSpaceModal(base))
 				);
 		}
-		containerEl.createEl("p", { text: "To rename, change or remove a space, edit the config file.", cls: "setting-item-description" });
 	}
 
 	private isOutsideVault(base: string, path: string): boolean {
@@ -219,11 +212,8 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 	}
 
 	private renderStatus(containerEl: HTMLElement): void {
-		const { config, error, file } = this.plugin.resolvedConfig;
-		const count = config.spaces.length;
-		const summary = count === 0
-			? `${file ? `Using ${file}` : "No config found"}: no spaces defined, so nothing is validated.`
-			: `Using ${file}: ${count} ${count === 1 ? "space" : "spaces"} (${config.spaces.map(s => s.name).join(", ")}).`;
+		const { error, file } = this.plugin.resolvedConfig;
+		const summary = file ? `Config: ${file}` : "No config found. Adding a space creates a .sctx.json in your vault.";
 		containerEl.createEl("p", { text: summary, cls: "setting-item-description" });
 		if (error) {
 			containerEl.createEl("p", { text: `Config problem: ${error}`, cls: "setting-item-description mod-warning" });
