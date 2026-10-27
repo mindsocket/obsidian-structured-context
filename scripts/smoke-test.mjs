@@ -54,13 +54,10 @@ try {
 		plugin.onunload();
 	};
 
-	// Spaces kept in the plugin settings
-	await check(await load({ configMode: "builtin", spaces: [{ name: "smoke", path: "notes" }] }), "built-in");
-
-	// A .sctx.json at the vault root, found by discovery in automatic mode
+	// A .sctx.json at the vault root, found by discovery
 	writeFileSync(join(vault, ".sctx.json"), JSON.stringify({ spaces: [{ name: "smoke", path: "notes", schema: "strategy_general.json" }] }));
-	const discovered = await load({ configMode: "auto", spaces: [] });
-	assert.equal(discovered.resolvedConfig.source, "system");
+	const discovered = await load({ configMode: "discovered" });
+	assert.equal(discovered.resolvedConfig.source, "discovered");
 	assert.equal(discovered.resolvedConfig.file, join(vault, ".sctx.json"));
 	await check(discovered, "vault .sctx.json");
 	console.log("smoke ok");

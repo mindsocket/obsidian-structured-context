@@ -49,8 +49,8 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 - `src/main.ts` — Plugin entry point, event handlers, debouncing
 - `src/validator.ts` — Wraps `validateFile()` from structured-context, caches config
 - `src/editor-extension.ts` — CM6 StateField for validation decorations. `planDecorations` decides what to draw (error, warning and info); it is pure and unit-tested
-- `src/config-source.ts` — Chooses the config from settings: auto (system config if it has spaces, else built-in), built-in, custom or system. No Obsidian imports, so it is unit-tested
-- `src/settings.ts` — Plugin settings UI (config source, spaces, debounce)
+- `src/config-source.ts` — Chooses the config from settings: discovered (SCTX_CONFIG, the vault's `.sctx.json`, then the global config) or a custom file. No Obsidian imports, so it is unit-tested
+- `src/settings.ts` — Plugin settings UI (config source, spaces listed from the config and added to the vault's `.sctx.json`, debounce)
 - `esbuild.config.mjs` — Build config; embeds structured-context's schemas (`virtual:bundled-schemas`) and copies manifest.json and styles.css to `dist/`
 - `scripts/smoke-test.mjs` — Installs the release files into a throwaway vault and validates fixture notes (`tests/smoke/`) with `obsidian` stubbed
 

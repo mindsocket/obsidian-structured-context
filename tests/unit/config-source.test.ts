@@ -2,57 +2,34 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import type { Config } from "structured-context/api";
-import { DEFAULT_SCHEMA, resolveConfig, type ConfigLoader, type ConfigSettings } from "../../src/config-source";
+import { resolveConfig, type ConfigLoader, type ConfigSettings } from "../../src/config-source";
 
 const BASE = join("/", "vault");
 const settings = (over: Partial<ConfigSettings> = {}): ConfigSettings => ({
-	configMode: "auto",
+	configMode: "discovered",
 	configPath: "",
-	spaces: [{ name: "notes", path: "notes" }],
 	...over,
 });
-const systemConfig: Config = { spaces: [{ name: "global", path: "/elsewhere" }] };
+const found = () => join(BASE, ".sctx.json");
+const discoveredConfig: Config = { spaces: [{ name: "global", path: "/elsewhere" }] };
 const loaderOf = (config: Config): ConfigLoader => () => config;
 const failing: ConfigLoader = () => {
 	throw new Error("bad json");
 };
 
-describe("built-in spaces", () => {
-	it("resolves vault-relative paths against the vault and defaults the schema", () => {
-		const { config, source, error } = resolveConfig(settings({ configMode: "builtin" }), BASE, failing);
-		assert.equal(source, "builtin");
-		assert.equal(error, undefined);
-		assert.deepEqual(config.spaces, [
-			{ name: "notes", path: join(BASE, "notes"), sourceDir: BASE, schema: DEFAULT_SCHEMA },
-		]);
-	});
-
-	it("resolves a space's own schema against the vault", () => {
-		const { config } = resolveConfig(
-			settings({ configMode: "builtin", spaces: [{ name: "n", path: "n", schema: "schemas/mine.json" }] }),
-			BASE,
-			failing,
-		);
-		assert.equal(config.spaces[0]?.schema, join(BASE, "schemas/mine.json"));
-	});
-
-	it("has no spaces when the vault has no filesystem path", () => {
-		assert.deepEqual(resolveConfig(settings({ configMode: "builtin" }), null, failing).config.spaces, []);
-	});
-});
-
 describe("custom config file", () => {
 	it("loads the given path", () => {
 		let asked: string | undefined;
-		const loader: ConfigLoader = (path) => ((asked = path), systemConfig);
+		const loader: ConfigLoader = (path) => ((asked = path), discoveredConfig);
 		const result = resolveConfig(settings({ configMode: "custom", configPath: "/my/config.json" }), BASE, loader);
 		assert.equal(asked, "/my/config.json");
 		assert.equal(result.source, "custom");
-		assert.equal(result.config, systemConfig);
+		assert.equal(result.config, discoveredConfig);
+		assert.equal(result.file, "/my/config.json");
 	});
 
 	it("reports a missing path instead of loading", () => {
-		const result = resolveConfig(settings({ configMode: "custom", configPath: "  " }), BASE, loaderOf(systemConfig));
+		const result = resolveConfig(settings({ configMode: "custom", configPath: "  " }), BASE, loaderOf(discoveredConfig));
 		assert.match(result.error ?? "", /No config file path/);
 		assert.deepEqual(result.config.spaces, []);
 	});
@@ -64,66 +41,27 @@ describe("custom config file", () => {
 	});
 });
 
-describe("discovery", () => {
-	it("starts discovery at the vault folder and reports the file it found", () => {
-		let startedAt: string | undefined;
-		const loader: ConfigLoader = (_path, startDir) => ((startedAt = startDir), systemConfig);
-		const result = resolveConfig(settings({ configMode: "system" }), BASE, loader, () => join(BASE, ".sctx.json"));
-		assert.equal(startedAt, BASE);
-		assert.equal(result.file, join(BASE, ".sctx.json"));
-	});
-
-	it("reports the discovered file when automatic mode uses it, and none for built-in spaces", () => {
-		const found = resolveConfig(settings(), BASE, loaderOf(systemConfig), () => "/found/.sctx.json");
-		assert.equal(found.file, "/found/.sctx.json");
-		const builtin = resolveConfig(settings(), BASE, loaderOf({ spaces: [] }), () => "/found/.sctx.json");
-		assert.equal(builtin.file, undefined);
-	});
-
-	it("reports the chosen file for a custom config", () => {
-		const result = resolveConfig(settings({ configMode: "custom", configPath: "/my/config.json" }), BASE, loaderOf(systemConfig));
-		assert.equal(result.file, "/my/config.json");
-	});
-});
-
-describe("system config", () => {
-	it("is discovered, not given a path", () => {
+describe("discovered config", () => {
+	it("is discovered from the vault folder, not given a path, and reports the file found", () => {
 		let asked: string | undefined = "unset";
-		const loader: ConfigLoader = (path) => ((asked = path), systemConfig);
-		const result = resolveConfig(settings({ configMode: "system" }), BASE, loader);
+		let startedAt: string | undefined;
+		const loader: ConfigLoader = (path, startDir) => ((asked = path), (startedAt = startDir), discoveredConfig);
+		const result = resolveConfig(settings(), BASE, loader, found);
 		assert.equal(asked, undefined);
-		assert.equal(result.source, "system");
+		assert.equal(startedAt, BASE);
+		assert.equal(result.source, "discovered");
+		assert.equal(result.config, discoveredConfig);
+		assert.equal(result.file, found());
 	});
 
-	it("does not fall back to built-in spaces", () => {
-		const result = resolveConfig(settings({ configMode: "system" }), BASE, loaderOf({ spaces: [] }));
-		assert.equal(result.source, "system");
+	it("has no spaces and no error when no config exists yet", () => {
+		const result = resolveConfig(settings(), BASE, failing, () => undefined);
 		assert.deepEqual(result.config.spaces, []);
+		assert.equal(result.error, undefined);
+		assert.equal(result.file, undefined);
 	});
 
 	it("reports a config that fails to load", () => {
-		assert.equal(resolveConfig(settings({ configMode: "system" }), BASE, failing).error, "bad json");
-	});
-});
-
-describe("automatic", () => {
-	it("prefers a system config that defines spaces", () => {
-		const result = resolveConfig(settings(), BASE, loaderOf(systemConfig));
-		assert.equal(result.source, "system");
-		assert.equal(result.config, systemConfig);
-	});
-
-	it("falls back to built-in spaces when the system config has none", () => {
-		const result = resolveConfig(settings(), BASE, loaderOf({ spaces: [] }));
-		assert.equal(result.source, "builtin");
-		assert.equal(result.error, undefined);
-		assert.equal(result.config.spaces[0]?.name, "notes");
-	});
-
-	it("falls back to built-in spaces but reports a system config that is broken", () => {
-		const result = resolveConfig(settings(), BASE, failing);
-		assert.equal(result.source, "builtin");
-		assert.equal(result.error, "bad json");
-		assert.equal(result.config.spaces[0]?.name, "notes");
+		assert.equal(resolveConfig(settings(), BASE, failing, found).error, "bad json");
 	});
 });

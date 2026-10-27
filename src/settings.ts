@@ -1,16 +1,15 @@
-import { App, AbstractInputSuggest, Modal, Notice, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
+import { App, AbstractInputSuggest, Modal, Notice, PluginSettingTab, Setting, TextComponent, TFile, TFolder } from "obsidian";
 import type StructuredContextPlugin from "./main";
 import { resolve } from "node:path";
 import type { ConfigMode, ConfigSettings, SpaceSetting } from "./config-source";
-import { addSpaceToVaultConfig, migrateSpacesToVaultConfig, vaultConfigPath } from "./vault-config";
+import { addSpaceToVaultConfig, vaultConfigPath } from "./vault-config";
 
 export interface PluginSettings extends ConfigSettings {
 	debounceMs: number;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
-	configMode: "auto",
-	spaces: [],
+	configMode: "discovered",
 	configPath: "",
 	debounceMs: 1500,
 };
@@ -51,35 +50,31 @@ class VaultFileSuggest extends AbstractInputSuggest<TFile> {
 	}
 }
 
-class SpaceEditModal extends Modal {
-	private space: SpaceSetting;
-	private readonly isNew: boolean;
+class AddSpaceModal extends Modal {
 	private readonly onSubmit: (space: SpaceSetting) => void;
+	private nameInput!: TextComponent;
+	private pathInput!: TextComponent;
+	private schemaInput!: TextComponent;
 
-	constructor(app: App, space: SpaceSetting | null, onSubmit: (space: SpaceSetting) => void) {
+	constructor(app: App, onSubmit: (space: SpaceSetting) => void) {
 		super(app);
-		this.isNew = space === null;
-		this.space = space ? { ...space } : { name: "", path: "" };
 		this.onSubmit = onSubmit;
 	}
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.createEl("h3", { text: this.isNew ? "Add space" : "Edit space" });
+		contentEl.createEl("h3", { text: "Add space" });
 
 		new Setting(contentEl)
 			.setName("Name")
 			.setDesc("Unique identifier: lowercase letters, numbers, hyphens, underscores")
-			.addText(text => text
-				.setValue(this.space.name)
-				.onChange(value => { this.space.name = value; })
-			);
+			.addText(text => { this.nameInput = text; });
 
 		new Setting(contentEl)
 			.setName("Path")
 			.setDesc("Vault-relative path to the space directory")
 			.addText(text => {
-				text.setValue(this.space.path).onChange(value => { this.space.path = value; });
+				this.pathInput = text;
 				new VaultFolderSuggest(this.app, text.inputEl);
 			});
 
@@ -87,9 +82,7 @@ class SpaceEditModal extends Modal {
 			.setName("Schema")
 			.setDesc("Vault-relative path to schema file (optional, defaults to the bundled strategy_general.json)")
 			.addText(text => {
-				text.setValue(this.space.schema ?? "").onChange(value => {
-					this.space.schema = value.trim() || undefined;
-				});
+				this.schemaInput = text;
 				new VaultFileSuggest(this.app, text.inputEl);
 			});
 
@@ -106,15 +99,19 @@ class SpaceEditModal extends Modal {
 	}
 
 	private submit(): void {
-		if (!/^[a-z0-9_-]+$/.test(this.space.name)) {
+		// Read the inputs directly: choosing a suggestion sets the value without firing change events.
+		const name = this.nameInput.getValue().trim();
+		const path = this.pathInput.getValue().trim();
+		const schema = this.schemaInput.getValue().trim();
+		if (!/^[a-z0-9_-]+$/.test(name)) {
 			new Notice("Space name must only contain lowercase letters, numbers, hyphens, and underscores.");
 			return;
 		}
-		if (!this.space.path.trim()) {
+		if (!path) {
 			new Notice("Path is required.");
 			return;
 		}
-		this.onSubmit({ ...this.space });
+		this.onSubmit({ name, path, ...(schema ? { schema } : {}) });
 		this.close();
 	}
 
@@ -145,10 +142,8 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 			.setName("Config source")
 			.setDesc("Where the spaces to validate come from.")
 			.addDropdown(drop => drop
-				.addOption("auto", "Automatic (recommended)")
-				.addOption("builtin", "Built-in spaces only")
+				.addOption("discovered", "Discovered config (recommended)")
 				.addOption("custom", "Custom config file")
-				.addOption("system", "Discovered config only")
 				.setValue(this.plugin.settings.configMode)
 				.onChange(async (value: string) => {
 					this.plugin.settings.configMode = value as ConfigMode;
@@ -161,17 +156,8 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 
 		const { configMode } = this.plugin.settings;
 
-		if (configMode === "auto") {
-			containerEl.createEl("p", {
-				text: `Automatic uses the discovered config when it defines spaces. ${SYSTEM_CONFIG_HELP} Otherwise it uses the spaces below.`,
-				cls: "setting-item-description",
-			});
-		}
-		const usingDiscovered = this.plugin.resolvedConfig.source === "system";
-		if (configMode === "system" || (configMode === "auto" && usingDiscovered)) {
+		if (configMode === "discovered") {
 			this.renderDiscoveredSection(containerEl);
-		} else if (configMode === "auto" || configMode === "builtin") {
-			this.renderBuiltinSection(containerEl);
 		} else {
 			this.renderCustomSection(containerEl);
 		}
@@ -192,67 +178,6 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 			);
 	}
 
-	private renderBuiltinSection(containerEl: HTMLElement): void {
-		new Setting(containerEl).setName("Spaces").setHeading();
-
-		const { spaces } = this.plugin.settings;
-
-		const base = this.plugin.vaultBasePath();
-		if (spaces.length === 0) {
-			containerEl.createEl("p", {
-				text: this.writesToVaultConfig()
-					? "No spaces configured. Add a space to create a .sctx.json in your vault."
-					: "No spaces configured. Add a space to start validating.",
-				cls: "setting-item-description",
-			});
-		} else {
-			for (let i = 0; i < spaces.length; i++) {
-				const space = spaces[i];
-				if (!space) continue;
-				const desc = space.schema ? `${space.path} · schema: ${space.schema}` : space.path;
-				new Setting(containerEl)
-					.setName(space.name)
-					.setDesc(desc)
-					.addExtraButton(btn => btn
-						.setIcon("pencil")
-						.setTooltip("Edit")
-						.onClick(() => this.openSpaceModal(i))
-					)
-					.addExtraButton(btn => btn
-						.setIcon("trash")
-						.setTooltip("Remove")
-						.onClick(async () => {
-							this.plugin.settings.spaces.splice(i, 1);
-							await this.plugin.saveSettings();
-							this.display();
-						})
-					);
-			}
-		}
-
-		new Setting(containerEl)
-			.addButton(btn => btn
-				.setButtonText("Add space")
-				.onClick(() => this.openSpaceModal(null))
-			);
-
-		if (base && spaces.length > 0) {
-			new Setting(containerEl)
-				.setName("Move to .sctx.json")
-				.setDesc("Save these spaces in a .sctx.json at the vault root, so the command line and other tools use the same spaces.")
-				.addButton(btn => btn
-					.setButtonText("Move")
-					.onClick(() => void this.moveSpacesToVaultConfig(base))
-				);
-		}
-	}
-
-	/** Automatic mode with nothing configured yet creates the vault's .sctx.json, rather than keeping spaces in plugin settings. */
-	private writesToVaultConfig(): boolean {
-		const { configMode, spaces } = this.plugin.settings;
-		return configMode === "auto" && spaces.length === 0 && this.plugin.vaultBasePath() !== null;
-	}
-
 	private renderDiscoveredSection(containerEl: HTMLElement): void {
 		new Setting(containerEl).setName("Spaces").setHeading();
 		containerEl.createEl("p", { text: SYSTEM_CONFIG_HELP, cls: "setting-item-description" });
@@ -263,31 +188,26 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 		}
 
 		const base = this.plugin.vaultBasePath();
-		if (base && file && resolve(file) === resolve(vaultConfigPath(base))) {
+		if (!file) {
+			containerEl.createEl("p", { text: "No config found. Add a space to create a .sctx.json in your vault.", cls: "setting-item-description" });
+		}
+		if (base && (!file || resolve(file) === resolve(vaultConfigPath(base)))) {
 			new Setting(containerEl)
 				.addButton(btn => btn
 					.setButtonText("Add space")
-					.onClick(() => this.openSpaceModal(null, true))
+					.onClick(() => this.openSpaceModal())
 				);
-			containerEl.createEl("p", { text: "To rename, change or remove a space, edit .sctx.json in your vault.", cls: "setting-item-description" });
+			if (file) {
+				containerEl.createEl("p", { text: "To rename, change or remove a space, edit .sctx.json in your vault.", cls: "setting-item-description" });
+			}
 		} else if (file) {
 			containerEl.createEl("p", { text: "To change these spaces, edit that file.", cls: "setting-item-description" });
 		}
 	}
 
-	private async moveSpacesToVaultConfig(base: string): Promise<void> {
-		const { spaces } = this.plugin.settings;
-		const { moved, error } = migrateSpacesToVaultConfig(base, spaces);
-		this.plugin.settings.spaces = spaces.filter(s => !moved.includes(s));
-		if (this.plugin.settings.configMode === "builtin") this.plugin.settings.configMode = "auto";
-		await this.plugin.saveSettings();
-		new Notice(error ? `Moved ${moved.length} of ${spaces.length} spaces. ${error}` : `Moved ${moved.length} ${moved.length === 1 ? "space" : "spaces"} to .sctx.json.`);
-		this.display();
-	}
-
 	private renderStatus(containerEl: HTMLElement): void {
 		const { source, config, error, file } = this.plugin.resolvedConfig;
-		const names = { builtin: "built-in spaces", custom: "custom config file", system: "discovered config" };
+		const names = { custom: "custom config file", discovered: "discovered config" };
 		const count = config.spaces.length;
 		const summary = count === 0
 			? `Using ${names[source]}${file ? ` (${file})` : ""}: no spaces defined, so nothing is validated.`
@@ -313,21 +233,15 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 			});
 	}
 
-	private openSpaceModal(index: number | null, toVaultConfig = false): void {
-		const existing = index !== null ? (this.plugin.settings.spaces[index] ?? null) : null;
-		new SpaceEditModal(this.app, existing, space => {
+	private openSpaceModal(): void {
+		new AddSpaceModal(this.app, space => {
 			const base = this.plugin.vaultBasePath();
-			if (index === null && base && (toVaultConfig || this.writesToVaultConfig())) {
-				try {
-					addSpaceToVaultConfig(base, space);
-				} catch (e) {
-					new Notice(e instanceof Error ? e.message : String(e));
-					return;
-				}
-			} else if (index !== null) {
-				this.plugin.settings.spaces[index] = space;
-			} else {
-				this.plugin.settings.spaces.push(space);
+			if (!base) return;
+			try {
+				addSpaceToVaultConfig(base, space);
+			} catch (e) {
+				new Notice(e instanceof Error ? e.message : String(e));
+				return;
 			}
 			void this.plugin.saveSettings().then(() => this.display());
 		}).open();

@@ -24,21 +24,3 @@ export function addSpaceToVaultConfig(basePath: string, space: SpaceSetting, wri
 		startDir: basePath,
 	});
 }
-
-/** Move the spaces kept in plugin settings into the vault's `.sctx.json`. Stops at the first failure. */
-export function migrateSpacesToVaultConfig(
-	basePath: string,
-	spaces: SpaceSetting[],
-	write: SpaceWriter = addSpace,
-): { moved: SpaceSetting[]; error?: string } {
-	const moved: SpaceSetting[] = [];
-	for (const space of spaces) {
-		try {
-			addSpaceToVaultConfig(basePath, space, write);
-			moved.push(space);
-		} catch (e) {
-			return { moved, error: e instanceof Error ? e.message : String(e) };
-		}
-	}
-	return { moved };
-}

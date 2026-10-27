@@ -40,8 +40,8 @@ Validation runs when you open a file and after you edit it. Semantic (AI-judged)
 
 | Setting | Description |
 |---|---|
-| Config source | **Automatic** (the default) uses the discovered config when it defines spaces, and your built-in spaces otherwise. **Built-in spaces only**, **Custom config file** and **Discovered config only** pick one source. |
-| Spaces | With a discovered config, its spaces are listed and **Add space** writes to the vault's `.sctx.json`; to rename, change or remove a space, edit that file. With built-in spaces, each has a name, a vault folder and an optional schema file, and **Move to .sctx.json** saves them in the vault's `.sctx.json`. |
+| Config source | **Discovered config** (the default) or a **Custom config file**. |
+| Spaces | The discovered config's spaces are listed. **Add space** (a name, a vault folder and an optional schema file) writes to the vault's `.sctx.json`, creating it if there is no config yet; to rename, change or remove a space, edit that file. |
 | Config file path | Custom config only. Path to a structured-context `config.json`. |
 | Validation debounce (ms) | How long to wait after you stop editing before re-validating (default 1500). Increase it if validation feels slow on large content sets. |
 
