@@ -190,20 +190,18 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 
 		const base = this.plugin.vaultBasePath();
 		for (const space of this.plugin.resolvedConfig.config.spaces) {
-			const outside = base !== null && this.isOutsideVault(base, space.path);
+			const outside = this.isOutsideVault(base, space.path);
 			const setting = new Setting(containerEl)
 				.setName(space.name)
 				.setDesc(outside ? `${space.path} · outside this vault` : space.path);
 			if (outside) setting.settingEl.addClass("sctx-outside-vault");
 		}
 
-		if (base) {
-			new Setting(containerEl)
-				.addButton(btn => btn
-					.setButtonText("Add space")
-					.onClick(() => void this.openSpaceModal(base))
-				);
-		}
+		new Setting(containerEl)
+			.addButton(btn => btn
+				.setButtonText("Add space")
+				.onClick(() => void this.openSpaceModal(base))
+			);
 	}
 
 	private isOutsideVault(base: string, path: string): boolean {

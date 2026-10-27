@@ -34,10 +34,4 @@ describe("resolveConfig", () => {
 		assert.deepEqual(result.config.spaces, []);
 		assert.equal(result.file, found());
 	});
-
-	it("discovers from the working directory when the vault has no filesystem path", () => {
-		let startedAt: string | undefined = "unset";
-		resolveConfig(null, (startDir) => ((startedAt = startDir), discoveredConfig), found);
-		assert.equal(startedAt, undefined);
-	});
 });

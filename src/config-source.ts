@@ -18,10 +18,10 @@ export interface ResolvedConfig {
 }
 
 /** Load the config structured-context discovers from `startDir`. Throws if it is invalid. */
-export type ConfigLoader = (startDir?: string) => Config;
+export type ConfigLoader = (startDir: string) => Config;
 
 /** Where discovery lands from `startDir`, or undefined when no config file exists. */
-export type ConfigLocator = (startDir: string | undefined) => string | undefined;
+export type ConfigLocator = (startDir: string) => string | undefined;
 
 const loadFromDisk: ConfigLoader = (startDir) => {
 	setConfigPath(undefined);
@@ -39,15 +39,14 @@ const locateOnDisk: ConfigLocator = (startDir) => {
  * global config. With none, there are no spaces and no error: adding a space creates one.
  */
 export function resolveConfig(
-	basePath: string | null,
+	basePath: string,
 	loader: ConfigLoader = loadFromDisk,
 	locate: ConfigLocator = locateOnDisk,
 ): ResolvedConfig {
-	const startDir = basePath ?? undefined;
-	const file = locate(startDir);
+	const file = locate(basePath);
 	if (!file) return { config: { spaces: [] } };
 	try {
-		return { config: loader(startDir), file };
+		return { config: loader(basePath), file };
 	} catch (e) {
 		return { config: { spaces: [] }, file, error: e instanceof Error ? e.message : String(e) };
 	}

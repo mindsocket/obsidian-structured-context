@@ -29,15 +29,13 @@ export default class StructuredContextPlugin extends Plugin {
 		this.addSettingTab(new StructuredContextSettingTab(this.app, this));
 
 		// structured-context reads its bundled schemas from disk, so write them next to the plugin
-		if (this.app.vault.adapter instanceof FileSystemAdapter && this.manifest.dir) {
-			const pluginDir = join(this.app.vault.adapter.getBasePath(), this.manifest.dir);
-			try {
-				setBundledSchemasDir(writeSchemaFiles(pluginDir, bundledSchemas));
-			} catch (e) {
-				const msg = e instanceof Error ? e.message : String(e);
-				this.notifyOnce(`Structured Context could not write its schemas to ${pluginDir}: ${msg}. Validation will fail until it can.`);
-				console.error("[structured-context] Could not write bundled schemas:", e);
-			}
+		const pluginDir = join(this.vaultBasePath(), this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`);
+		try {
+			setBundledSchemasDir(writeSchemaFiles(pluginDir, bundledSchemas));
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			this.notifyOnce(`Structured Context could not write its schemas to ${pluginDir}: ${msg}. Validation will fail until it can.`);
+			console.error("[structured-context] Could not write bundled schemas:", e);
 		}
 
 		this.applyConfig();
@@ -101,9 +99,7 @@ export default class StructuredContextPlugin extends Plugin {
 		this.applyConfig();
 		const run = ++this.validationRun;
 
-		const adapter = this.app.vault.adapter;
-		const basePath = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
-		const absolutePath = basePath ? join(basePath, file.path) : file.path;
+		const absolutePath = join(this.vaultBasePath(), file.path);
 
 		let result = null;
 		try {
@@ -137,24 +133,21 @@ export default class StructuredContextPlugin extends Plugin {
 	/** The schemas available to the current config, for the add-space dialog. Empty if they cannot be listed. */
 	async availableSchemas(): Promise<Awaited<ReturnType<typeof listSchemas>>> {
 		try {
-			return await listSchemas({ config: this.resolvedConfig.config, startDir: this.vaultBasePath() ?? undefined });
+			return await listSchemas({ config: this.resolvedConfig.config, startDir: this.vaultBasePath() });
 		} catch (e) {
 			console.error("[structured-context] Could not list schemas:", e);
 			return [];
 		}
 	}
 
-	/** The vault's folder on disk, or null when the vault is not on a local filesystem. */
-	vaultBasePath(): string | null {
-		const adapter = this.app.vault.adapter;
-		return adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
+	/** The vault's folder on disk. The plugin is desktop-only, so the vault is always on the local filesystem. */
+	vaultBasePath(): string {
+		return (this.app.vault.adapter as FileSystemAdapter).getBasePath();
 	}
 
 	/** Discover the config and use it for validation. */
 	private applyConfig() {
-		const adapter = this.app.vault.adapter;
-		const basePath = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
-		this.resolvedConfig = resolveConfig(basePath);
+		this.resolvedConfig = resolveConfig(this.vaultBasePath());
 		this.validator = new Validator(this.resolvedConfig.config);
 		if (this.resolvedConfig.error) {
 			this.notifyOnce(`Structured Context config problem: ${this.resolvedConfig.error}`);
