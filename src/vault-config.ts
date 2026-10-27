@@ -13,13 +13,19 @@ type AddSpaceResult = ReturnType<typeof addSpace>;
 
 /**
  * Add a space defined with vault-relative paths to the vault's `.sctx.json`, creating the file if needed.
- * A schema path is relative to the vault, which is the config file's folder, so it is written as `./path`.
+ * A schema in `named` (bundled or from a plugin) is written as it is. Any other schema is a path relative to the
+ * vault, which is the config file's folder, so it is written as `./path`.
  */
-export function addSpaceToVaultConfig(basePath: string, space: SpaceSetting, write: SpaceWriter = addSpace): AddSpaceResult {
+export function addSpaceToVaultConfig(
+	basePath: string,
+	space: SpaceSetting,
+	named: readonly string[] = [],
+	write: SpaceWriter = addSpace,
+): AddSpaceResult {
 	return write({
 		name: space.name,
 		path: join(basePath, space.path),
-		schema: space.schema ? `./${space.schema}` : DEFAULT_SCHEMA,
+		schema: !space.schema ? DEFAULT_SCHEMA : named.includes(space.schema) ? space.schema : `./${space.schema}`,
 		configFile: vaultConfigPath(basePath),
 		startDir: basePath,
 	});

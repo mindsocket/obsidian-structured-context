@@ -21,7 +21,7 @@ const recorder = () => {
 describe("addSpaceToVaultConfig", () => {
 	it("writes to the vault root with absolute paths and the default schema", () => {
 		const { calls, write } = recorder();
-		addSpaceToVaultConfig(BASE, { name: "notes", path: "notes" }, write);
+		addSpaceToVaultConfig(BASE, { name: "notes", path: "notes" }, [], write);
 		assert.deepEqual(calls, [
 			{ name: "notes", path: join(BASE, "notes"), schema: DEFAULT_SCHEMA, configFile: vaultConfigPath(BASE), startDir: BASE },
 		]);
@@ -30,7 +30,17 @@ describe("addSpaceToVaultConfig", () => {
 
 	it("writes a vault-relative schema relative to the config folder", () => {
 		const { calls, write } = recorder();
-		addSpaceToVaultConfig(BASE, { name: "n", path: "n", schema: "schemas/mine.json" }, write);
+		addSpaceToVaultConfig(BASE, { name: "n", path: "n", schema: "schemas/mine.json" }, [], write);
 		assert.equal(calls[0]?.schema, "./schemas/mine.json");
+	});
+});
+
+describe("named schemas", () => {
+	it("writes a bundled or plugin schema as it is, not as a vault path", () => {
+		const { calls, write } = recorder();
+		const named = ["knowledge_wiki.json", "demo/demo.json"];
+		addSpaceToVaultConfig(BASE, { name: "a", path: "a", schema: "knowledge_wiki.json" }, named, write);
+		addSpaceToVaultConfig(BASE, { name: "b", path: "b", schema: "demo/demo.json" }, named, write);
+		assert.deepEqual(calls.map(c => c.schema), ["knowledge_wiki.json", "demo/demo.json"]);
 	});
 });

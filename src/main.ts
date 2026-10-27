@@ -2,7 +2,7 @@ import { FileSystemAdapter, Notice, Plugin, MarkdownView, TFile } from "obsidian
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import bundledSchemas from "virtual:bundled-schemas";
-import { setBundledSchemasDir } from "structured-context/api";
+import { listSchemas, setBundledSchemasDir } from "structured-context/api";
 import { EditorView } from "@codemirror/view";
 import { CONFIG_MODES, resolveConfig, type ResolvedConfig } from "./config-source";
 import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
@@ -104,6 +104,16 @@ export default class StructuredContextPlugin extends Plugin {
 		cmView.dispatch({
 			effects: setValidationResult.of(result),
 		});
+	}
+
+	/** The schemas available to the current config, for the add-space dialog. Empty if they cannot be listed. */
+	async availableSchemas(): Promise<Awaited<ReturnType<typeof listSchemas>>> {
+		try {
+			return await listSchemas({ config: this.resolvedConfig.config, startDir: this.vaultBasePath() ?? undefined });
+		} catch (e) {
+			console.error("[structured-context] Could not list schemas:", e);
+			return [];
+		}
 	}
 
 	/** The vault's folder on disk, or null when the vault is not on a local filesystem. */

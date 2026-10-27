@@ -1,4 +1,4 @@
-import { App, AbstractInputSuggest, Modal, Notice, PluginSettingTab, Setting, TextComponent, TFile, TFolder } from "obsidian";
+import { App, AbstractInputSuggest, Modal, Notice, PluginSettingTab, Setting, TextComponent, TFolder } from "obsidian";
 import type StructuredContextPlugin from "./main";
 import { resolve } from "node:path";
 import type { ConfigMode, ConfigSettings, SpaceSetting } from "./config-source";
@@ -32,20 +32,34 @@ class VaultFolderSuggest extends AbstractInputSuggest<TFolder> {
 	}
 }
 
-class VaultFileSuggest extends AbstractInputSuggest<TFile> {
-	getSuggestions(query: string): TFile[] {
+/** A schema choice: a bundled or plugin schema by name, or a .json file in the vault by vault-relative path. */
+interface SchemaOption {
+	value: string;
+	detail: string;
+}
+
+class SchemaSuggest extends AbstractInputSuggest<SchemaOption> {
+	constructor(app: App, inputEl: HTMLInputElement, private readonly named: SchemaOption[]) {
+		super(app, inputEl);
+	}
+
+	getSuggestions(query: string): SchemaOption[] {
 		const lq = query.toLowerCase();
-		return this.app.vault.getAllLoadedFiles()
-			.filter((f): f is TFile => f instanceof TFile && f.path.toLowerCase().includes(lq))
+		const files = this.app.vault.getFiles()
+			.filter(f => f.extension === "json")
+			.map(f => ({ value: f.path, detail: "vault" }));
+		return [...this.named, ...files]
+			.filter(o => o.value.toLowerCase().includes(lq) || o.detail.toLowerCase().includes(lq))
 			.slice(0, 50);
 	}
 
-	renderSuggestion(file: TFile, el: HTMLElement): void {
-		el.setText(file.path);
+	renderSuggestion(option: SchemaOption, el: HTMLElement): void {
+		el.setText(option.value);
+		el.createEl("small", { text: ` ${option.detail}`, cls: "setting-item-description" });
 	}
 
-	selectSuggestion(file: TFile, _evt: MouseEvent | KeyboardEvent): void {
-		this.setValue(file.path);
+	selectSuggestion(option: SchemaOption, _evt: MouseEvent | KeyboardEvent): void {
+		this.setValue(option.value);
 		this.close();
 	}
 }
@@ -56,7 +70,7 @@ class AddSpaceModal extends Modal {
 	private pathInput!: TextComponent;
 	private schemaInput!: TextComponent;
 
-	constructor(app: App, onSubmit: (space: SpaceSetting) => void) {
+	constructor(app: App, private readonly schemas: SchemaOption[], onSubmit: (space: SpaceSetting) => void) {
 		super(app);
 		this.onSubmit = onSubmit;
 	}
@@ -80,10 +94,10 @@ class AddSpaceModal extends Modal {
 
 		new Setting(contentEl)
 			.setName("Schema")
-			.setDesc("Vault-relative path to schema file (optional, defaults to the bundled strategy_general.json)")
+			.setDesc("Choose a bundled or plugin schema, or a JSON schema file in your vault. Leave empty for the default, strategy_general.json.")
 			.addText(text => {
 				this.schemaInput = text;
-				new VaultFileSuggest(this.app, text.inputEl);
+				new SchemaSuggest(this.app, text.inputEl, this.schemas);
 			});
 
 		new Setting(contentEl)
@@ -195,7 +209,7 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.addButton(btn => btn
 					.setButtonText("Add space")
-					.onClick(() => this.openSpaceModal())
+					.onClick(() => void this.openSpaceModal())
 				);
 			if (file) {
 				containerEl.createEl("p", { text: "To rename, change or remove a space, edit .sctx.json in your vault.", cls: "setting-item-description" });
@@ -233,12 +247,15 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 			});
 	}
 
-	private openSpaceModal(): void {
-		new AddSpaceModal(this.app, space => {
+	private async openSpaceModal(): Promise<void> {
+		const schemas = (await this.plugin.availableSchemas())
+			.filter(l => !l.partial && l.source !== "configured")
+			.map(l => ({ value: l.schema, detail: l.source === "core" ? "bundled" : l.source }));
+		new AddSpaceModal(this.app, schemas, space => {
 			const base = this.plugin.vaultBasePath();
 			if (!base) return;
 			try {
-				addSpaceToVaultConfig(base, space);
+				addSpaceToVaultConfig(base, space, schemas.map(s => s.value));
 			} catch (e) {
 				new Notice(e instanceof Error ? e.message : String(e));
 				return;

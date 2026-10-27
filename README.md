@@ -16,7 +16,7 @@ Not yet in the Obsidian community plugins browser. To try it, download `main.js`
 
 1. Enable the plugin in Obsidian settings.
 2. If your vault already has a `.sctx.json` at its root, or you use [structured-context](https://github.com/mindsocket/structured-context) on the command line or in Claude Code, you're done: the plugin finds the same config.
-3. Otherwise open the plugin's settings and, under **Spaces**, add a space: a name, the vault folder that holds your content, and optionally a schema file in your vault. Without a schema, the bundled `strategy_general.json` is used. This creates a `.sctx.json` at the vault root, which the command line and Claude Code read too.
+3. Otherwise open the plugin's settings and, under **Spaces**, add a space: a name, the vault folder that holds your content, and optionally a schema: a bundled or plugin schema, or a JSON file in your vault. Without a schema, the bundled `strategy_general.json` is used. This creates a `.sctx.json` at the vault root, which the command line and Claude Code read too.
 4. Open a markdown file in that folder.
 
 Files outside every space are ignored. The settings page shows which config is in use and the spaces it defines.
@@ -41,7 +41,7 @@ Validation runs when you open a file and after you edit it. Semantic (AI-judged)
 | Setting | Description |
 |---|---|
 | Config source | **Discovered config** (the default) or a **Custom config file**. |
-| Spaces | The discovered config's spaces are listed. **Add space** (a name, a vault folder and an optional schema file) writes to the vault's `.sctx.json`, creating it if there is no config yet; to rename, change or remove a space, edit that file. |
+| Spaces | The discovered config's spaces are listed. **Add space** (a name, a vault folder and an optional schema) writes to the vault's `.sctx.json`, creating it if there is no config yet; to rename, change or remove a space, edit that file. |
 | Config file path | Custom config only. Path to a structured-context `config.json`. |
 | Validation debounce (ms) | How long to wait after you stop editing before re-validating (default 1500). Increase it if validation feels slow on large content sets. |
 
