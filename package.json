@@ -27,7 +27,7 @@
 		"jiti": "2.6.1",
 		"lefthook": "^2.1.4",
 		"obsidian": "1.10.3",
-		"structured-context": "^0.14.0",
+		"structured-context": "^0.15.0",
 		"tslib": "2.4.0",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "8.35.1"
