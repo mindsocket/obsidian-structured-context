@@ -45,6 +45,10 @@ Validation runs when you open a file and after you edit it. Semantic (AI-judged)
 
 The config is the nearest `.sctx.json` from the vault folder upward, otherwise `~/.config/structured-context/config.json`. Paths in a `.sctx.json` are relative to the folder that holds it, so `"path": "."` is the whole vault.
 
+## Security
+
+**Only use configs and schemas you trust.** Opening a vault validates its notes against whatever config the plugin finds (see above). Schema rules are JSONata expressions, and a crafted schema can run arbitrary code. A config can also declare plugins, which structured-context loads as JavaScript from a `plugins/` folder next to the config file. Both run inside Obsidian with your user's permissions, so treat a shared or downloaded vault's `.sctx.json`, schemas and `plugins/` folder like code. See structured-context's [security notice](https://github.com/mindsocket/structured-context/blob/main/docs/config.md#security-notice).
+
 ## Development
 
 ```bash
