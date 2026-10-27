@@ -35,7 +35,7 @@ try {
 
 	const app = {
 		vault: { adapter: new FileSystemAdapter(vault), on() {} },
-		workspace: { on() {}, getActiveViewOfType: () => null, getLeaf: () => ({}) },
+		workspace: { on() {}, onLayoutReady(cb) { cb(); }, getActiveFile: () => null, getActiveViewOfType: () => null, getLeaf: () => ({}) },
 	};
 	const load = async (savedData) => {
 		const plugin = new Plugin(app, { ...manifest, dir: ".obsidian/plugins/structured-context" });

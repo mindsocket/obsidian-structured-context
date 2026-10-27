@@ -1,4 +1,4 @@
-import { FileSystemAdapter, Notice, Plugin, MarkdownView, TFile } from "obsidian";
+import { FileSystemAdapter, Notice, Plugin, MarkdownView, TAbstractFile, TFile } from "obsidian";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import bundledSchemas from "virtual:bundled-schemas";
@@ -19,12 +19,20 @@ function writeBundledSchemas(dir: string) {
 	}
 }
 
+function isMarkdown(path: string): boolean {
+	return path.endsWith(".md");
+}
+
 export default class StructuredContextPlugin extends Plugin {
 	settings: PluginSettings;
 	private validator: Validator;
 	/** The config in use and where it came from; the settings tab reports it. */
 	resolvedConfig: ResolvedConfig;
-	private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	/** Counts validations started; a run that finishes after a newer one started discards its result. */
+	private validationRun = 0;
+	/** The last problem shown in a notice, so a repeated failure is not shown again on every validation. */
+	private lastNotice: string | null = null;
 
 	async onload() {
 		await this.loadSettings();
@@ -44,46 +52,61 @@ export default class StructuredContextPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", () => {
-				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (view?.file) {
-					void this.validateFile(view.file, view);
-				}
+				this.cancelScheduledValidation();
+				void this.validateActive();
 			})
 		);
 
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
-				if (!(file instanceof TFile) || file.extension !== "md") return;
-
-				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (view?.file?.path !== file.path) return;
-
-				const existing = this.debounceTimers.get(file.path);
-				if (existing) clearTimeout(existing);
-
-				const timer = setTimeout(() => {
-					this.debounceTimers.delete(file.path);
-					void this.validateFile(file, view);
-				}, this.settings.debounceMs);
-
-				this.debounceTimers.set(file.path, timer);
+				if (file.path === this.app.workspace.getActiveFile()?.path) this.scheduleValidation();
 			})
 		);
 
-		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-		if (activeView?.file) {
-			void this.validateFile(activeView.file, activeView);
-		}
+		// Adding, removing or renaming any note can change the open note's links, hierarchy and duplicate checks.
+		// Obsidian reports every existing file as created while the vault loads, so listen only once it has.
+		this.app.workspace.onLayoutReady(() => {
+			const onNoteChange = (file: TAbstractFile, oldPath?: string) => {
+				if (isMarkdown(file.path) || (oldPath !== undefined && isMarkdown(oldPath))) this.scheduleValidation();
+			};
+			this.registerEvent(this.app.vault.on("create", onNoteChange));
+			this.registerEvent(this.app.vault.on("delete", onNoteChange));
+			this.registerEvent(this.app.vault.on("rename", onNoteChange));
+		});
+
+		void this.validateActive();
 	}
 
 	onunload() {
-		for (const timer of this.debounceTimers.values()) {
-			clearTimeout(timer);
-		}
-		this.debounceTimers.clear();
+		this.cancelScheduledValidation();
+	}
+
+	/** Validate the open note once changes have paused for the debounce interval. */
+	private scheduleValidation() {
+		this.cancelScheduledValidation();
+		this.debounceTimer = setTimeout(() => {
+			this.debounceTimer = null;
+			void this.validateActive();
+		}, this.settings.debounceMs);
+	}
+
+	private cancelScheduledValidation() {
+		if (this.debounceTimer) clearTimeout(this.debounceTimer);
+		this.debounceTimer = null;
+	}
+
+	/** Validate whichever note is open when this runs, not when it was scheduled. */
+	private async validateActive() {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (view?.file) await this.validateFile(view.file, view);
 	}
 
 	private async validateFile(file: TFile, view: MarkdownView) {
+		// The config file can be edited outside Obsidian at any time, and Obsidian does not report changes to
+		// dotfiles, so discover it afresh on every validation. It is a few small JSON reads.
+		this.applyConfig();
+		const run = ++this.validationRun;
+
 		const adapter = this.app.vault.adapter;
 		const basePath = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
 		const absolutePath = basePath ? join(basePath, file.path) : file.path;
@@ -91,12 +114,16 @@ export default class StructuredContextPlugin extends Plugin {
 		let result = null;
 		try {
 			result = await this.validator.validate(absolutePath);
+			if (!this.resolvedConfig.error) this.lastNotice = null;
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
-			new Notice(`Structured Context validation failed: ${msg}`);
+			this.notifyOnce(`Structured Context validation failed: ${msg}`);
 			console.error("[structured-context] Validation error:", e);
-			return;
+			// Fall through with no result, so the last good decorations do not stay beside the error
 		}
+
+		// A newer validation has started, or the view now shows another note: this result is stale
+		if (run !== this.validationRun || view.file?.path !== file.path) return;
 
 		const cmView = (view.editor as unknown as { cm?: EditorView }).cm;
 		if (!cmView) return;
@@ -104,6 +131,13 @@ export default class StructuredContextPlugin extends Plugin {
 		cmView.dispatch({
 			effects: setValidationResult.of(result),
 		});
+	}
+
+	/** Show a notice unless it repeats the last one; a broken schema would otherwise raise one per edit. */
+	private notifyOnce(message: string) {
+		if (message === this.lastNotice) return;
+		this.lastNotice = message;
+		new Notice(message);
 	}
 
 	/** The schemas available to the current config, for the add-space dialog. Empty if they cannot be listed. */
@@ -129,7 +163,7 @@ export default class StructuredContextPlugin extends Plugin {
 		this.resolvedConfig = resolveConfig(basePath);
 		this.validator = new Validator(this.resolvedConfig.config);
 		if (this.resolvedConfig.error) {
-			new Notice(`Structured Context config problem: ${this.resolvedConfig.error}`);
+			this.notifyOnce(`Structured Context config problem: ${this.resolvedConfig.error}`);
 			console.error("[structured-context] Config error:", this.resolvedConfig.error);
 		}
 	}
@@ -143,9 +177,6 @@ export default class StructuredContextPlugin extends Plugin {
 		await this.saveData(this.settings);
 		this.applyConfig();
 		// The open note may now be in a different space, or none
-		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-		if (view?.file) {
-			void this.validateFile(view.file, view);
-		}
+		void this.validateActive();
 	}
 }
