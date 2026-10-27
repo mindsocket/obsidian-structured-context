@@ -103,7 +103,8 @@ describe("validationField", () => {
 		const out: Array<{ from: number; block: boolean; cls?: string }> = [];
 		const cursor = state.field(validationField).iter();
 		while (cursor.value) {
-			out.push({ from: cursor.from, block: !!cursor.value.spec.block, cls: cursor.value.spec.class });
+			const spec = cursor.value.spec as { block?: boolean; class?: string };
+			out.push({ from: cursor.from, block: !!spec.block, cls: spec.class });
 			cursor.next();
 		}
 		return out;

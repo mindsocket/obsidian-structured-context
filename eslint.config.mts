@@ -22,6 +22,11 @@ export default tseslint.config(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		// node:test's describe and it return promises that the runner awaits itself
+		files: ["tests/**/*.ts"],
+		rules: { "@typescript-eslint/no-floating-promises": "off" },
+	},
 	globalIgnores([
 		"node_modules",
 		"dist",
@@ -31,6 +36,7 @@ export default tseslint.config(
 		"versions.json",
 		"main.js",
 		"scripts",
-		"tests",
+		".worktrees",
+		"tests/smoke/stubs",
 	]),
 );
