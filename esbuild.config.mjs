@@ -54,22 +54,33 @@ function packageDirOf(input) {
 	return parts.slice(0, i + 1 + nameLength).join("/");
 }
 
+const isCopyrightLine = (line) => /^\s*(copyright\b|\(c\)|©)/i.test(line);
+
 // A release is only main.js, manifest.json and styles.css, so the licences of the packages bundled into main.js
-// travel at its end.
+// travel at its end. Each distinct licence text appears once, after the packages and copyright lines it covers.
 const licenceNotices = {
 	name: "licence-notices",
 	setup(build) {
 		build.onEnd((result) => {
 			if (!result.metafile) return;
-			const dirs = new Set(Object.keys(result.metafile.inputs).map(packageDirOf).filter(Boolean));
-			const notices = [...dirs].sort().map((dir) => {
+			const dirs = [...new Set(Object.keys(result.metafile.inputs).map(packageDirOf).filter(Boolean))];
+			const groups = new Map(); // licence text without copyright lines -> lines naming the packages it covers
+			for (const dir of dirs) {
 				const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
 				const file = readdirSync(dir).find((f) => /^(licen[cs]e|copying)(\.|$)/i.test(f));
-				const text = file ? readFileSync(join(dir, file), "utf8").trim() : `License: ${pkg.license ?? "unknown"}`;
-				return `${pkg.name}@${pkg.version}\n\n${text}`;
-			});
-			if (notices.length === 0) return;
-			const body = notices.join("\n\n---\n\n").replaceAll("*/", "* /");
+				const lines = file ? readFileSync(join(dir, file), "utf8").split("\n") : [];
+				const copyright = lines.filter(isCopyrightLine).map((l) => l.trim()).join("; ");
+				const text = file
+					? lines.filter((l) => !isCopyrightLine(l)).join("\n").trim()
+					: `License: ${pkg.license ?? "unknown"} (the package has no licence file)`;
+				if (!groups.has(text)) groups.set(text, []);
+				groups.get(text).push(`  ${pkg.name}@${pkg.version}${copyright ? `  ${copyright}` : ""}`);
+			}
+			if (groups.size === 0) return;
+			const body = [...groups]
+				.map(([text, packages]) => `${packages.sort().join("\n")}\n\n${text}`)
+				.join("\n\n---\n\n")
+				.replaceAll("*/", "* /");
 			appendFileSync(build.initialOptions.outfile, `\n/*\nThird-party software bundled in this file:\n\n${body}\n*/\n`);
 		});
 	},
@@ -87,6 +98,8 @@ const prod = (process.argv[2] === "production");
 const context = await esbuild.context({
 	plugins: [embeddedSchemas, copyAssets, licenceNotices],
 	metafile: prod,
+	// licenceNotices covers every bundled package; esbuild's own block covers only those with legal comments
+	legalComments: "none",
 	banner: {
 		js: banner,
 	},
