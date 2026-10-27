@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import type { AddSpaceOptions, AddSpaceResult } from "structured-context/api";
+import type { addSpace } from "structured-context/api";
 import { DEFAULT_SCHEMA } from "../../src/config-source";
 import { addSpaceToVaultConfig, migrateSpacesToVaultConfig, vaultConfigPath } from "../../src/vault-config";
+
+type AddSpaceOptions = Parameters<typeof addSpace>[0];
+type AddSpaceResult = ReturnType<typeof addSpace>;
 
 const BASE = join("/", "vault");
 const recorder = () => {

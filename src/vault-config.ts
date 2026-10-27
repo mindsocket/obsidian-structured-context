@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { addSpace, LOCAL_CONFIG_FILE, type AddSpaceOptions, type AddSpaceResult } from "structured-context/api";
+import { addSpace, LOCAL_CONFIG_FILE } from "structured-context/api";
 import { DEFAULT_SCHEMA, type SpaceSetting } from "./config-source";
 
 /** The `.sctx.json` at the vault root: where spaces added from the plugin are written. */
@@ -8,7 +8,8 @@ export function vaultConfigPath(basePath: string): string {
 }
 
 /** Writes a space to a config file; structured-context's addSpace unless a test passes its own. */
-export type SpaceWriter = (options: AddSpaceOptions) => AddSpaceResult;
+export type SpaceWriter = typeof addSpace;
+type AddSpaceResult = ReturnType<typeof addSpace>;
 
 /**
  * Add a space defined with vault-relative paths to the vault's `.sctx.json`, creating the file if needed.
