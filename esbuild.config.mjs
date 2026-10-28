@@ -1,7 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from 'node:module';
-import { appendFileSync, cpSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -10,9 +10,6 @@ const require = createRequire(import.meta.url);
 const configDir = dirname(fileURLToPath(import.meta.url));
 const apiEntry = require.resolve('structured-context/api');
 const sctxRoot = resolve(dirname(apiEntry), '..');
-// PROTOTYPE: the library's bundled map view definitions are read at runtime from its checkout. A release
-// needs them embedded, like structured-context's schemas (structured-context-map-views#2).
-const mapViewsDir = resolve(realpathSync(resolve(configDir, "node_modules/structured-context-navigator")), "map-views");
 
 /** Every file under dir, as { path relative to dir: contents }. */
 function readTree(dir, base = dir, out = {}) {
@@ -43,8 +40,8 @@ const copyAssets = {
 	setup(build) {
 		build.onEnd(() => {
 			cpSync("manifest.json", "dist/manifest.json");
-			// Plugin styles plus the prebuilt map-views stylesheet (run `bun run build:map-views` in the navigator app first).
-			const mapViewsCss = readFileSync(require.resolve("structured-context-navigator/map-views/styles.css"), "utf8");
+			// Plugin styles plus the map-views library's prebuilt stylesheet (`npm run build:map-views` builds it).
+			const mapViewsCss = readFileSync(require.resolve("structured-context-map-views/styles.css"), "utf8");
 			writeFileSync("dist/styles.css", `${readFileSync("styles.css", "utf8")}\n${mapViewsCss}`);
 		});
 	},
@@ -126,9 +123,10 @@ const context = await esbuild.context({
 		"@lezer/highlight",
 		"@lezer/lr",
 		...builtinModules],
-	// PROTOTYPE: map-views comes through a file: dependency, whose imports resolve from its own node_modules.
+	// PROTOTYPE: while map-views is a file: dependency, its imports resolve from its own checkout's node_modules.
 	// Pin React and structured-context to this plugin's copies so the bundle has one of each. An aliased path
-	// resolves from the working directory, so a bare package name here means this plugin's copy.
+	// resolves from the working directory, so a bare package name here means this plugin's copy. Drop this
+	// once map-views is installed from npm, where its peer dependencies resolve to the plugin's copies.
 	alias: {
 		"react": resolve(configDir, "node_modules/react"),
 		"react-dom": resolve(configDir, "node_modules/react-dom"),
@@ -136,7 +134,6 @@ const context = await esbuild.context({
 	},
 	define: {
 		"process.env.NODE_ENV": JSON.stringify(prod ? "production" : "development"),
-		SCTX_MAP_VIEWS_DIR: JSON.stringify(mapViewsDir),
 	},
 	platform: "node",
 	format: "cjs",

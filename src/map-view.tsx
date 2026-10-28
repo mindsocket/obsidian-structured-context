@@ -4,17 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { assembleSpaceGraph, createSpaceContext, type Config, type SpaceGraph, type SpaceNode } from "structured-context/api";
 import {
+	MapView,
 	type MapViewDefinition,
 	mapViewsForSchema,
+	ParameterControls,
 	type ParameterValues,
 	selectionFilter,
-} from "structured-context-navigator/map-views/core";
-import { MapView, ParameterControls } from "structured-context-navigator/map-views/layouts";
-import { loadMapViewDefinitions } from "structured-context-navigator/map-views/node";
+} from "structured-context-map-views";
+import { loadMapViewDefinitions } from "structured-context-map-views/node";
 import type { ResolvedConfig } from "./config-source";
-
-/** Absolute path of the library's bundled definitions, injected by the build (esbuild `define`). */
-declare const SCTX_MAP_VIEWS_DIR: string;
 
 export const MAP_VIEW_TYPE = "structured-context-map-view";
 
@@ -116,10 +114,7 @@ function toPaneState(state: unknown): PaneState {
 
 /** The definitions bundled with the library, in plugins and next to the config file. */
 function loadMapViews({ config, file }: ResolvedConfig): MapViewDefinition[] {
-	return loadMapViewDefinitions(config, {
-		...(file && { configDir: dirname(file) }),
-		bundledDir: SCTX_MAP_VIEWS_DIR,
-	});
+	return loadMapViewDefinitions(config, file ? { configDir: dirname(file) } : {});
 }
 
 type Space = { schemaId: string | undefined; graph: SpaceGraph };
