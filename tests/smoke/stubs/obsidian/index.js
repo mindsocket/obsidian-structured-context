@@ -17,6 +17,6 @@ class Noop {}
 module.exports = {
 	FileSystemAdapter, Plugin,
 	Notice: class { constructor(msg) { console.error("Notice:", msg); } },
-	MarkdownView: Noop, TFile: Noop, TFolder: Noop, App: Noop, Modal: Noop,
+	ItemView: Noop, MarkdownView: Noop, TFile: Noop, TFolder: Noop, App: Noop, Modal: Noop,
 	PluginSettingTab: Noop, AbstractInputSuggest: Noop, Setting: Noop,
 };

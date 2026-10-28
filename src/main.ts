@@ -8,6 +8,7 @@ import { writeSchemaFiles } from "./schema-files";
 import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
 import { Validator } from "./validator";
 import { type FieldMap, setValidationResult, validationField } from "./editor-extension";
+import { MAP_VIEW_TYPE, MapViewPane } from "./map-view";
 
 function isMarkdown(path: string): boolean {
 	return path.endsWith(".md");
@@ -41,6 +42,13 @@ export default class StructuredContextPlugin extends Plugin {
 		this.refreshConfig();
 
 		this.registerEditorExtension([validationField]);
+
+		this.registerView(MAP_VIEW_TYPE, (leaf) => new MapViewPane(leaf, () => this.resolvedConfig));
+		this.addCommand({
+			id: "open-map-view",
+			name: "Open map view",
+			callback: () => this.app.workspace.getLeaf("tab").setViewState({ type: MAP_VIEW_TYPE, active: true }),
+		});
 
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", () => {

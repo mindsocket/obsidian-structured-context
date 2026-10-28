@@ -43,3 +43,34 @@
 .sctx-outside-vault {
 	opacity: 0.6;
 }
+
+/* Map views: map-views theme variables onto Obsidian's theme */
+.sctx-map-view {
+	--mv-color-surface: var(--background-primary);
+	--mv-color-card: var(--background-secondary);
+	--mv-color-ink: var(--text-normal);
+	--mv-color-muted: var(--text-muted);
+	--mv-color-edge: var(--background-modifier-border);
+	--mv-color-accent: var(--interactive-accent);
+}
+
+.sctx-map-view-host {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.sctx-map-view-toolbar {
+	display: flex;
+	gap: var(--size-4-2);
+	padding-bottom: var(--size-4-2);
+}
+
+.sctx-map-view-parameters {
+	padding-bottom: var(--size-4-2);
+}
+
+.sctx-map-view-body {
+	flex: 1;
+	min-height: 0;
+}
