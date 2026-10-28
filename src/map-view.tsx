@@ -1,8 +1,14 @@
-import { FileSystemAdapter, ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import { dirname, isAbsolute, join, relative } from "node:path";
+import { FileSystemAdapter, ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import { useEffect, useMemo, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { assembleSpaceGraph, createSpaceContext, type Config, type SpaceGraph, type SpaceNode } from "structured-context/api";
+import {
+	assembleSpaceGraph,
+	type Config,
+	createSpaceContext,
+	type SpaceGraph,
+	type SpaceNode,
+} from "structured-context/api";
 import {
 	MapView,
 	type MapViewDefinition,
@@ -91,7 +97,8 @@ export class MapViewPane extends ItemView {
 	/** Open a node's source file in a new tab, if it lives inside this vault. */
 	private openSource(absolutePath: string) {
 		const adapter = this.app.vault.adapter;
-		const vaultPath = adapter instanceof FileSystemAdapter ? relative(adapter.getBasePath(), absolutePath) : undefined;
+		const vaultPath =
+			adapter instanceof FileSystemAdapter ? relative(adapter.getBasePath(), absolutePath) : undefined;
 		if (vaultPath === undefined || vaultPath.startsWith("..") || isAbsolute(vaultPath)) {
 			new Notice(`Not in this vault: ${absolutePath}`);
 			return;
@@ -238,7 +245,9 @@ function MapViewHost({
 			{error && <p className="sctx-map-view-error">{error}</p>}
 			{data && !definition && <p>No map view applies to this space's schema.</p>}
 			<div className="sctx-map-view-body">
-				{shown && definition && <MapView definition={definition} graph={shown.graph} values={values} onNodeSelect={openNode} />}
+				{shown && definition && (
+					<MapView definition={definition} graph={shown.graph} values={values} onNodeSelect={openNode} />
+				)}
 			</div>
 		</div>
 	);

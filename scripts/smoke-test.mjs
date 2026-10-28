@@ -12,7 +12,11 @@ try {
 	// Only what a GitHub release carries: main.js, manifest.json, styles.css.
 	const pluginDir = join(vault, ".obsidian/plugins/structured-context");
 	mkdirSync(pluginDir, { recursive: true });
-	for (const [from, to] of [["dist/main.js", "main.js"], ["dist/manifest.json", "manifest.json"], ["dist/styles.css", "styles.css"]]) {
+	for (const [from, to] of [
+		["dist/main.js", "main.js"],
+		["dist/manifest.json", "manifest.json"],
+		["dist/styles.css", "styles.css"],
+	]) {
 		assert.ok(existsSync(join(root, from)), `${from} missing; run npm run build first`);
 		cpSync(join(root, from), join(pluginDir, to));
 	}
@@ -24,7 +28,13 @@ try {
 	const resolveFilename = Module._resolveFilename;
 	Module._resolveFilename = function (request, ...rest) {
 		if (request === "obsidian") return join(root, "tests/smoke/stubs/obsidian/index.js");
-		if (request.startsWith("@codemirror/")) return resolveFilename.call(this, request, { ...rest[0], paths: [join(root, "node_modules")] }, ...rest.slice(1));
+		if (request.startsWith("@codemirror/"))
+			return resolveFilename.call(
+				this,
+				request,
+				{ ...rest[0], paths: [join(root, "node_modules")] },
+				...rest.slice(1),
+			);
 		return resolveFilename.call(this, request, ...rest);
 	};
 
@@ -35,7 +45,15 @@ try {
 
 	const app = {
 		vault: { adapter: new FileSystemAdapter(vault), on() {} },
-		workspace: { on() {}, onLayoutReady(cb) { cb(); }, getActiveFile: () => null, getActiveViewOfType: () => null, getLeaf: () => ({}) },
+		workspace: {
+			on() {},
+			onLayoutReady(cb) {
+				cb();
+			},
+			getActiveFile: () => null,
+			getActiveViewOfType: () => null,
+			getLeaf: () => ({}),
+		},
 	};
 	const load = async (savedData) => {
 		const plugin = new Plugin(app, { ...manifest, dir: ".obsidian/plugins/structured-context" });
@@ -49,20 +67,30 @@ try {
 			results[name] = await plugin.validator.validate(join(vault, "notes", `${name}.md`));
 		}
 		assert.ok(results["valid-goal"], `${label}: valid note was not found in the space`);
-		assert.equal(results["valid-goal"].errorCount, 0, `${label}: valid note failed: ${JSON.stringify(results["valid-goal"])}`);
+		assert.equal(
+			results["valid-goal"].errorCount,
+			0,
+			`${label}: valid note failed: ${JSON.stringify(results["valid-goal"])}`,
+		);
 		assert.ok(results["invalid-type"]?.errorCount > 0, `${label}: invalid note passed validation`);
 		plugin.onunload();
 	};
 
 	// A .sctx.json at the vault root, found by discovery
-	writeFileSync(join(vault, ".sctx.json"), JSON.stringify({ spaces: [{ name: "smoke", path: "notes", schema: "strategy_general.json" }] }));
+	writeFileSync(
+		join(vault, ".sctx.json"),
+		JSON.stringify({ spaces: [{ name: "smoke", path: "notes", schema: "strategy_general.json" }] }),
+	);
 	const discovered = await load({});
 	assert.equal(discovered.resolvedConfig.file, join(vault, ".sctx.json"));
 	await check(discovered, "vault .sctx.json");
 
 	// The schemas offered when adding a space come from structured-context's listSchemas
 	const offered = await discovered.availableSchemas();
-	assert.ok(offered.some(l => l.source === "core" && l.schema === "strategy_general.json" && !l.partial), "bundled schemas were not listed");
+	assert.ok(
+		offered.some((l) => l.source === "core" && l.schema === "strategy_general.json" && !l.partial),
+		"bundled schemas were not listed",
+	);
 	console.log("smoke ok");
 } finally {
 	rmSync(vault, { recursive: true, force: true });

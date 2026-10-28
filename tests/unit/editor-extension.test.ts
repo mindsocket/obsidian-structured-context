@@ -24,24 +24,34 @@ const DOC = Text.of(["---", "type: goal", "status: nope", "title: T", "---", "",
 
 describe("planDecorations", () => {
 	it("places a schema issue on the line of its property", () => {
-		const plan = planDecorations(DOC, result({ "schema:/status:enum:active": issue("status: must be one of active") }));
-		assert.deepEqual(plan.lines, [{ line: 3, issues: [{ severity: "error", message: "status: must be one of active" }] }]);
+		const plan = planDecorations(
+			DOC,
+			result({ "schema:/status:enum:active": issue("status: must be one of active") }),
+		);
+		assert.deepEqual(plan.lines, [
+			{ line: 3, issues: [{ severity: "error", message: "status: must be one of active" }] },
+		]);
 		assert.deepEqual(plan.panel, []);
 	});
 
 	it("places an issue on the note's own key for a field renamed by fieldMap", () => {
 		const doc = Text.of(["---", "record_type: goal", "title: T", "---"]);
-		const plan = planDecorations(doc, result({ "schema:/type:enum": issue("type: must be one of") }), { record_type: "type" });
-		assert.deepEqual(plan.lines.map(l => l.line), [2]);
+		const plan = planDecorations(doc, result({ "schema:/type:enum": issue("type: must be one of") }), {
+			record_type: "type",
+		});
+		assert.deepEqual(
+			plan.lines.map((l) => l.line),
+			[2],
+		);
 		assert.deepEqual(plan.panel, []);
 	});
 
 	it("reads the property from nested and constraint-suffixed schema keys", () => {
-		const plan = planDecorations(
-			DOC,
-			result({ "schema:/title/0:type": issue("a"), "schema:/type": issue("b") }),
+		const plan = planDecorations(DOC, result({ "schema:/title/0:type": issue("a"), "schema:/type": issue("b") }));
+		assert.deepEqual(
+			plan.lines.map((l) => l.line),
+			[2, 4],
 		);
-		assert.deepEqual(plan.lines.map(l => l.line), [2, 4]);
 	});
 
 	it("puts issues without a property in the panel after the frontmatter", () => {
@@ -67,7 +77,10 @@ describe("planDecorations", () => {
 				},
 			),
 		);
-		assert.deepEqual(plan.panel.map(p => p.severity), ["warning", "info"]);
+		assert.deepEqual(
+			plan.panel.map((p) => p.severity),
+			["warning", "info"],
+		);
 	});
 
 	it("lists errors before warnings before info, on a line and in the panel", () => {
@@ -83,8 +96,14 @@ describe("planDecorations", () => {
 				},
 			),
 		);
-		assert.deepEqual(plan.lines[0]?.issues.map(i => i.severity), ["error", "warning", "info"]);
-		assert.deepEqual(plan.panel.map(i => i.severity), ["error", "warning", "info"]);
+		assert.deepEqual(
+			plan.lines[0]?.issues.map((i) => i.severity),
+			["error", "warning", "info"],
+		);
+		assert.deepEqual(
+			plan.panel.map((i) => i.severity),
+			["error", "warning", "info"],
+		);
 	});
 
 	it("sends everything to the panel at the top when there is no frontmatter", () => {
@@ -95,7 +114,10 @@ describe("planDecorations", () => {
 	});
 
 	it("ignores an unterminated frontmatter block", () => {
-		const plan = planDecorations(Text.of(["---", "status: x", "no end"]), result({ "schema:/status:x": issue("x") }));
+		const plan = planDecorations(
+			Text.of(["---", "status: x", "no end"]),
+			result({ "schema:/status:x": issue("x") }),
+		);
 		assert.equal(plan.lines.length, 0);
 		assert.equal(plan.panel.length, 1);
 	});
@@ -132,10 +154,13 @@ describe("validationField", () => {
 			}),
 		}).state;
 		const ranges = rangesOf(state);
-		assert.equal(ranges.filter(r => r.cls === "sctx-issue-line sctx-error").length, 1);
-		assert.equal(ranges.filter(r => !r.block && r.cls === undefined).length, 2);
-		assert.equal(ranges.filter(r => r.block).length, 1);
-		assert.deepEqual(ranges.map(r => r.from), [...ranges.map(r => r.from)].sort((a, b) => a - b));
+		assert.equal(ranges.filter((r) => r.cls === "sctx-issue-line sctx-error").length, 1);
+		assert.equal(ranges.filter((r) => !r.block && r.cls === undefined).length, 2);
+		assert.equal(ranges.filter((r) => r.block).length, 1);
+		assert.deepEqual(
+			ranges.map((r) => r.from),
+			[...ranges.map((r) => r.from)].sort((a, b) => a - b),
+		);
 	});
 
 	it("clears when the result is null", () => {
@@ -150,6 +175,6 @@ describe("validationField", () => {
 		const state = start().update({
 			effects: setValidationResult.of({ result: result({}, { "schema:/status:b": issue("warn") }) }),
 		}).state;
-		assert.ok(rangesOf(state).some(r => r.cls === "sctx-issue-line sctx-warning"));
+		assert.ok(rangesOf(state).some((r) => r.cls === "sctx-issue-line sctx-warning"));
 	});
 });

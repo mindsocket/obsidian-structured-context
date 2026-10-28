@@ -1,7 +1,16 @@
-import { App, AbstractInputSuggest, Modal, Notice, PluginSettingTab, Setting, TextComponent, TFolder } from "obsidian";
-import type StructuredContextPlugin from "./main";
 import { isAbsolute, relative } from "node:path";
+import {
+	AbstractInputSuggest,
+	type App,
+	Modal,
+	Notice,
+	PluginSettingTab,
+	Setting,
+	type TextComponent,
+	TFolder,
+} from "obsidian";
 import type { SpaceSetting } from "./config-source";
+import type StructuredContextPlugin from "./main";
 import { addSpaceTarget, addSpaceToConfig, vaultConfigPath } from "./vault-config";
 
 export interface PluginSettings {
@@ -15,7 +24,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 class VaultFolderSuggest extends AbstractInputSuggest<TFolder> {
 	getSuggestions(query: string): TFolder[] {
 		const lq = query.toLowerCase();
-		return this.app.vault.getAllLoadedFiles()
+		return this.app.vault
+			.getAllLoadedFiles()
 			.filter((f): f is TFolder => f instanceof TFolder && f.path.toLowerCase().includes(lq))
 			.slice(0, 50);
 	}
@@ -37,17 +47,22 @@ interface SchemaOption {
 }
 
 class SchemaSuggest extends AbstractInputSuggest<SchemaOption> {
-	constructor(app: App, inputEl: HTMLInputElement, private readonly named: SchemaOption[]) {
+	constructor(
+		app: App,
+		inputEl: HTMLInputElement,
+		private readonly named: SchemaOption[],
+	) {
 		super(app, inputEl);
 	}
 
 	getSuggestions(query: string): SchemaOption[] {
 		const lq = query.toLowerCase();
-		const files = this.app.vault.getFiles()
-			.filter(f => f.extension === "json")
-			.map(f => ({ value: f.path, detail: "vault" }));
+		const files = this.app.vault
+			.getFiles()
+			.filter((f) => f.extension === "json")
+			.map((f) => ({ value: f.path, detail: "vault" }));
 		return [...this.named, ...files]
-			.filter(o => o.value.toLowerCase().includes(lq) || o.detail.toLowerCase().includes(lq))
+			.filter((o) => o.value.toLowerCase().includes(lq) || o.detail.toLowerCase().includes(lq))
 			.slice(0, 50);
 	}
 
@@ -90,12 +105,14 @@ class AddSpaceModal extends Modal {
 		new Setting(contentEl)
 			.setName("Name")
 			.setDesc("Lowercase letters, numbers, hyphens and underscores")
-			.addText(text => { this.nameInput = text; });
+			.addText((text) => {
+				this.nameInput = text;
+			});
 
 		new Setting(contentEl)
 			.setName("Path")
 			.setDesc("Vault-relative path to the space directory")
-			.addText(text => {
+			.addText((text) => {
 				this.pathInput = text;
 				new VaultFolderSuggest(this.app, text.inputEl);
 			});
@@ -103,29 +120,25 @@ class AddSpaceModal extends Modal {
 		new Setting(contentEl)
 			.setName("Schema")
 			.setDesc("A bundled or plugin schema, or a JSON file in your vault. Default: strategy_general.json")
-			.addText(text => {
+			.addText((text) => {
 				this.schemaInput = text;
 				new SchemaSuggest(this.app, text.inputEl, this.schemas);
 			});
 
 		contentEl.createEl("p", { text: `Saves to ${this.target}`, cls: "setting-item-description" });
 
-		const buttons = new Setting(contentEl)
-			.addButton(btn => btn
+		const buttons = new Setting(contentEl).addButton((btn) =>
+			btn
 				.setButtonText("Save")
 				.setCta()
-				.onClick(() => this.submit(false))
-			);
+				.onClick(() => this.submit(false)),
+		);
 		if (this.canUseVaultConfig) {
-			buttons.addButton(btn => btn
-				.setButtonText("Save to new vault-level config")
-				.onClick(() => this.submit(true))
+			buttons.addButton((btn) =>
+				btn.setButtonText("Save to new vault-level config").onClick(() => this.submit(true)),
 			);
 		}
-		buttons.addButton(btn => btn
-			.setButtonText("Cancel")
-			.onClick(() => this.close())
-		);
+		buttons.addButton((btn) => btn.setButtonText("Cancel").onClick(() => this.close()));
 	}
 
 	private submit(useVaultConfig: boolean): void {
@@ -174,16 +187,15 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Validation debounce (ms)")
 			.setDesc("Wait after an edit before re-validating")
-			.addText(text => text
-				.setValue(String(this.plugin.settings.debounceMs))
-				.onChange(async value => {
+			.addText((text) =>
+				text.setValue(String(this.plugin.settings.debounceMs)).onChange(async (value) => {
 					const n = Number(value);
 					if (Number.isInteger(n) && n >= 0) {
 						this.plugin.settings.debounceMs = n;
 						// Read live by the modify handler, so the config needs no rebuild
 						await this.plugin.saveData(this.plugin.settings);
 					}
-				})
+				}),
 			);
 	}
 
@@ -199,11 +211,9 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 			if (outside) setting.settingEl.addClass("sctx-outside-vault");
 		}
 
-		new Setting(containerEl)
-			.addButton(btn => btn
-				.setButtonText("Add space")
-				.onClick(() => void this.openSpaceModal(base))
-			);
+		new Setting(containerEl).addButton((btn) =>
+			btn.setButtonText("Add space").onClick(() => void this.openSpaceModal(base)),
+		);
 	}
 
 	private isOutsideVault(base: string, path: string): boolean {
@@ -213,22 +223,32 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 
 	private renderStatus(containerEl: HTMLElement): void {
 		const { error, file } = this.plugin.resolvedConfig;
-		const summary = file ? `Config: ${file}` : "No config found. Adding a space creates a .sctx.json in your vault.";
+		const summary = file
+			? `Config: ${file}`
+			: "No config found. Adding a space creates a .sctx.json in your vault.";
 		containerEl.createEl("p", { text: summary, cls: "setting-item-description" });
 		if (error) {
-			containerEl.createEl("p", { text: `Config problem: ${error}`, cls: "setting-item-description mod-warning" });
+			containerEl.createEl("p", {
+				text: `Config problem: ${error}`,
+				cls: "setting-item-description mod-warning",
+			});
 		}
 	}
 
 	private async openSpaceModal(base: string): Promise<void> {
 		const schemas = (await this.plugin.availableSchemas())
-			.filter(l => !l.partial && l.source !== "configured")
-			.map(l => ({ value: l.schema, detail: l.source === "core" ? "bundled" : l.source }));
+			.filter((l) => !l.partial && l.source !== "configured")
+			.map((l) => ({ value: l.schema, detail: l.source === "core" ? "bundled" : l.source }));
 		const { file } = this.plugin.resolvedConfig;
 		const canUseVaultConfig = file !== undefined && file !== vaultConfigPath(base);
 		new AddSpaceModal(this.app, schemas, addSpaceTarget(base, file), canUseVaultConfig, (space, useVaultConfig) => {
 			try {
-				addSpaceToConfig(base, addSpaceTarget(base, file, useVaultConfig), space, schemas.map(s => s.value));
+				addSpaceToConfig(
+					base,
+					addSpaceTarget(base, file, useVaultConfig),
+					space,
+					schemas.map((s) => s.value),
+				);
 			} catch (e) {
 				new Notice(e instanceof Error ? e.message : String(e));
 				return;

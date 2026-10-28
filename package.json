@@ -1,21 +1,27 @@
 {
 	"name": "obsidian-structured-context",
 	"version": "0.1.0",
+	"private": true,
 	"description": "Inline validation hints for structured-context spaces in Obsidian.",
 	"main": "dist/main.js",
 	"type": "module",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"typecheck": "tsc --noEmit",
+		"build": "npm run typecheck && node esbuild.config.mjs production",
 		"test": "node scripts/unit-test.mjs",
 		"test:smoke": "node scripts/smoke-test.mjs",
 		"install-to-vault": "bash scripts/install-to-vault.sh",
+		"preversion": "npm run lint && npm test && npm run build && npm run test:smoke",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"lint": "eslint ."
+		"postversion": "git push --follow-tags",
+		"lint": "biome check && eslint .",
+		"lint:fix": "biome check --write && eslint --fix ."
 	},
 	"keywords": [],
 	"license": "MIT",
 	"devDependencies": {
+		"@biomejs/biome": "^2.6.3",
 		"@codemirror/state": "6.5.0",
 		"@codemirror/view": "6.38.6",
 		"@eslint/js": "9.30.1",

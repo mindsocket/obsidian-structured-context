@@ -1,14 +1,14 @@
-import { FileSystemAdapter, Notice, Plugin, MarkdownView, TAbstractFile, TFile } from "obsidian";
 import { join } from "node:path";
 import bundledSchemas from "virtual:bundled-schemas";
+import type { EditorView } from "@codemirror/view";
+import { type FileSystemAdapter, MarkdownView, Notice, Plugin, type TAbstractFile, type TFile } from "obsidian";
 import { listSchemas, setBundledSchemasDir } from "structured-context/api";
-import { EditorView } from "@codemirror/view";
-import { resolveConfig, type ResolvedConfig } from "./config-source";
-import { writeSchemaFiles } from "./schema-files";
-import { DEFAULT_SETTINGS, PluginSettings, StructuredContextSettingTab } from "./settings";
-import { Validator } from "./validator";
+import { type ResolvedConfig, resolveConfig } from "./config-source";
 import { type FieldMap, setValidationResult, validationField } from "./editor-extension";
 import { MAP_VIEW_TYPE, MapViewPane } from "./map-view";
+import { writeSchemaFiles } from "./schema-files";
+import { DEFAULT_SETTINGS, type PluginSettings, StructuredContextSettingTab } from "./settings";
+import { Validator } from "./validator";
 
 function isMarkdown(path: string): boolean {
 	return path.endsWith(".md");
@@ -30,12 +30,17 @@ export default class StructuredContextPlugin extends Plugin {
 		this.addSettingTab(new StructuredContextSettingTab(this.app, this));
 
 		// structured-context reads its bundled schemas from disk, so write them next to the plugin
-		const pluginDir = join(this.vaultBasePath(), this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`);
+		const pluginDir = join(
+			this.vaultBasePath(),
+			this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`,
+		);
 		try {
 			setBundledSchemasDir(writeSchemaFiles(pluginDir, bundledSchemas));
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
-			this.notifyOnce(`Structured Context could not write its schemas to ${pluginDir}: ${msg}. Validation will fail until it can.`);
+			this.notifyOnce(
+				`Structured Context could not write its schemas to ${pluginDir}: ${msg}. Validation will fail until it can.`,
+			);
 			console.error("[structured-context] Could not write bundled schemas:", e);
 		}
 
@@ -54,13 +59,13 @@ export default class StructuredContextPlugin extends Plugin {
 			this.app.workspace.on("active-leaf-change", () => {
 				this.cancelScheduledValidation();
 				void this.validateActive();
-			})
+			}),
 		);
 
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
 				if (file.path === this.app.workspace.getActiveFile()?.path) this.scheduleValidation();
-			})
+			}),
 		);
 
 		// Adding, removing or renaming any note can change the open note's links, hierarchy and duplicate checks.
@@ -133,7 +138,7 @@ export default class StructuredContextPlugin extends Plugin {
 
 	/** The markdown plugin's fieldMap for a space. structured-context stores plugin names with their prefix. */
 	private fieldMapOf(spaceName: string): FieldMap | undefined {
-		const plugins = this.resolvedConfig.config.spaces.find(s => s.name === spaceName)?.plugins;
+		const plugins = this.resolvedConfig.config.spaces.find((s) => s.name === spaceName)?.plugins;
 		return plugins?.["sctx-markdown"]?.fieldMap as FieldMap | undefined;
 	}
 

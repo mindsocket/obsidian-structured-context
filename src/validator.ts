@@ -1,4 +1,4 @@
-import { validateFile, type Config } from "structured-context/api";
+import { type Config, validateFile } from "structured-context/api";
 import type { FileValidationResult } from "structured-context/types";
 
 export class Validator {

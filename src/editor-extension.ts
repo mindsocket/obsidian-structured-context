@@ -1,15 +1,5 @@
-import {
-	Decoration,
-	DecorationSet,
-	EditorView,
-	WidgetType,
-} from "@codemirror/view";
-import {
-	RangeSetBuilder,
-	StateEffect,
-	StateField,
-	Text,
-} from "@codemirror/state";
+import { RangeSetBuilder, StateEffect, StateField, type Text } from "@codemirror/state";
+import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import type { FileValidationResult } from "structured-context/types";
 
 /** How an issue is shown. Info is a rule violation of `info` severity, which structured-context reports among its warnings. */
@@ -29,8 +19,7 @@ export interface ShownResult {
 	fieldMap?: FieldMap;
 }
 
-export const setValidationResult =
-	StateEffect.define<ShownResult | null>();
+export const setValidationResult = StateEffect.define<ShownResult | null>();
 
 export interface PlannedIssue {
 	severity: Severity;
@@ -99,7 +88,7 @@ class IssuePanelWidget extends WidgetType {
 }
 
 function worst(issues: PlannedIssue[]): Severity {
-	return SEVERITY_ORDER.find(sev => issues.some(i => i.severity === sev)) ?? "info";
+	return SEVERITY_ORDER.find((sev) => issues.some((i) => i.severity === sev)) ?? "info";
 }
 
 function bySeverity(a: PlannedIssue, b: PlannedIssue): number {
@@ -205,7 +194,7 @@ function buildDecorations(doc: Text, { result, fieldMap }: ShownResult): Decorat
 		builder.add(
 			insertPos,
 			insertPos,
-			Decoration.widget({ widget: new IssuePanelWidget(plan.panel), side: 1, block: true })
+			Decoration.widget({ widget: new IssuePanelWidget(plan.panel), side: 1, block: true }),
 		);
 	}
 
@@ -218,9 +207,7 @@ export const validationField = StateField.define<DecorationSet>({
 		decorations = decorations.map(tr.changes);
 		for (const effect of tr.effects) {
 			if (effect.is(setValidationResult)) {
-				decorations = effect.value
-					? buildDecorations(tr.state.doc, effect.value)
-					: Decoration.none;
+				decorations = effect.value ? buildDecorations(tr.state.doc, effect.value) : Decoration.none;
 			}
 		}
 		return decorations;

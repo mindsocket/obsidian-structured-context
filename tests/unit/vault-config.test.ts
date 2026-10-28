@@ -35,7 +35,13 @@ describe("addSpaceToConfig", () => {
 		const { calls, write } = recorder();
 		addSpaceToConfig(BASE, vaultConfigPath(BASE), { name: "notes", path: "notes" }, [], write);
 		assert.deepEqual(calls, [
-			{ name: "notes", path: join(BASE, "notes"), schema: DEFAULT_SCHEMA, configFile: vaultConfigPath(BASE), startDir: BASE },
+			{
+				name: "notes",
+				path: join(BASE, "notes"),
+				schema: DEFAULT_SCHEMA,
+				configFile: vaultConfigPath(BASE),
+				startDir: BASE,
+			},
 		]);
 	});
 
@@ -57,6 +63,9 @@ describe("addSpaceToConfig", () => {
 		const named = ["knowledge_wiki.json", "demo/demo.json"];
 		addSpaceToConfig(BASE, GLOBAL, { name: "a", path: "a", schema: "knowledge_wiki.json" }, named, write);
 		addSpaceToConfig(BASE, vaultConfigPath(BASE), { name: "b", path: "b", schema: "demo/demo.json" }, named, write);
-		assert.deepEqual(calls.map(c => c.schema), ["knowledge_wiki.json", "demo/demo.json"]);
+		assert.deepEqual(
+			calls.map((c) => c.schema),
+			["knowledge_wiki.json", "demo/demo.json"],
+		);
 	});
 });
