@@ -1,11 +1,11 @@
-import { loadConfig, resolveConfigPath, setConfigPath, type Config } from "structured-context/api";
+import { type Config, loadConfig, resolveConfigPath, setConfigPath } from "structured-context/api";
 
 /** Bundled schema given to spaces added without one; structured-context requires an explicit schema. */
 export const DEFAULT_SCHEMA = "strategy_general.json";
 
 export interface SpaceSetting {
 	name: string;
-	path: string;    // vault-relative
+	path: string; // vault-relative
 	schema?: string; // a bundled or plugin schema by name, or a vault-relative path
 }
 

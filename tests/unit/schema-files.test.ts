@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { writeSchemaFiles } from "../../src/schema-files";
 
 let pluginDir = "";
-const files = { "a.json": "{\"a\":1}", "generated/latest/meta.json": "{}" };
+const files = { "a.json": '{"a":1}', "generated/latest/meta.json": "{}" };
 
 beforeEach(() => {
 	pluginDir = mkdtempSync(join(tmpdir(), "sctx-schemas-"));
@@ -16,14 +16,14 @@ afterEach(() => rmSync(pluginDir, { recursive: true, force: true }));
 describe("writeSchemaFiles", () => {
 	it("writes every file, nested ones included, into one folder", () => {
 		const dir = writeSchemaFiles(pluginDir, files);
-		assert.equal(readFileSync(join(dir, "a.json"), "utf8"), "{\"a\":1}");
+		assert.equal(readFileSync(join(dir, "a.json"), "utf8"), '{"a":1}');
 		assert.equal(readFileSync(join(dir, "generated/latest/meta.json"), "utf8"), "{}");
 	});
 
 	it("uses the same folder for the same files, and another one when they change", () => {
 		const first = writeSchemaFiles(pluginDir, files);
 		assert.equal(writeSchemaFiles(pluginDir, files), first);
-		const changed = writeSchemaFiles(pluginDir, { ...files, "a.json": "{\"a\":2}" });
+		const changed = writeSchemaFiles(pluginDir, { ...files, "a.json": '{"a":2}' });
 		assert.notEqual(changed, first);
 	});
 
@@ -37,7 +37,10 @@ describe("writeSchemaFiles", () => {
 		const dir = writeSchemaFiles(pluginDir, files);
 
 		assert.equal(existsSync(old), false);
-		assert.deepEqual(readdirSync(pluginDir).sort(), ["data.json", "main.js", dir.slice(pluginDir.length + 1)].sort());
+		assert.deepEqual(
+			readdirSync(pluginDir).sort(),
+			["data.json", "main.js", dir.slice(pluginDir.length + 1)].sort(),
+		);
 	});
 
 	it("throws when the folder cannot be written", () => {

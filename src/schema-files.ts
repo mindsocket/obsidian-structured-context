@@ -31,6 +31,10 @@ export function writeSchemaFiles(pluginDir: string, files: Record<string, string
 
 function contentHash(files: Record<string, string>): string {
 	const hash = createHash("sha256");
-	for (const relPath of Object.keys(files).sort()) hash.update(relPath).update("\0").update(files[relPath] ?? "").update("\0");
+	for (const relPath of Object.keys(files).sort())
+		hash.update(relPath)
+			.update("\0")
+			.update(files[relPath] ?? "")
+			.update("\0");
 	return hash.digest("hex").slice(0, 12);
 }

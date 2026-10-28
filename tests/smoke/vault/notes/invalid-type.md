@@ -1,4 +1,5 @@
 ---
+
 type: banana
 title: Not a known type
 ---

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import type { Config } from "structured-context/api";
-import { resolveConfig, type ConfigLoader } from "../../src/config-source";
+import { type ConfigLoader, resolveConfig } from "../../src/config-source";
 
 const BASE = join("/", "vault");
 const found = () => join(BASE, ".sctx.json");
@@ -14,7 +14,10 @@ const failing: ConfigLoader = () => {
 describe("resolveConfig", () => {
 	it("discovers from the vault folder and reports the file found", () => {
 		let startedAt: string | undefined;
-		const loader: ConfigLoader = (startDir) => ((startedAt = startDir), discoveredConfig);
+		const loader: ConfigLoader = (startDir) => {
+			startedAt = startDir;
+			return discoveredConfig;
+		};
 		const result = resolveConfig(BASE, loader, found);
 		assert.equal(startedAt, BASE);
 		assert.equal(result.config, discoveredConfig);

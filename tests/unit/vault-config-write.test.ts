@@ -10,7 +10,8 @@ import { addSpaceTarget, addSpaceToConfig, vaultConfigPath } from "../../src/vau
 let root = "";
 let vault = "";
 let elsewhere = "";
-const read = (file: string) => JSON.parse(readFileSync(file, "utf8")) as { spaces: { name: string; path: string; schema: string }[] };
+const read = (file: string) =>
+	JSON.parse(readFileSync(file, "utf8")) as { spaces: { name: string; path: string; schema: string }[] };
 
 beforeEach(() => {
 	root = realpathSync(mkdtempSync(join(tmpdir(), "sctx-add-")));
@@ -46,21 +47,27 @@ describe("adding a space with the real addSpace", () => {
 		const named = ["strategy_general.json"];
 		addSpaceToConfig(vault, elsewhere, { name: "a", path: "notes", schema: "strategy_general.json" }, named);
 		addSpaceToConfig(vault, elsewhere, { name: "b", path: "notes" }, named);
-		assert.deepEqual(read(elsewhere).spaces.map(s => s.schema), ["strategy_general.json", "strategy_general.json"]);
+		assert.deepEqual(
+			read(elsewhere).spaces.map((s) => s.schema),
+			["strategy_general.json", "strategy_general.json"],
+		);
 	});
 
 	it("refuses a duplicate name, leaving the file as it was", () => {
 		const target = vaultConfigPath(vault);
 		addSpaceToConfig(vault, target, { name: "notes", path: "notes" });
 		const before = readFileSync(target, "utf8");
-		assert.throws(() => addSpaceToConfig(vault, target, { name: "notes", path: "notes" }), /already defines a space named/);
+		assert.throws(
+			() => addSpaceToConfig(vault, target, { name: "notes", path: "notes" }),
+			/already defines a space named/,
+		);
 		assert.equal(readFileSync(target, "utf8"), before);
 	});
 
 	it("refuses a config that is not strict JSON, leaving it as it was", () => {
 		mkdirSync(join(root, "global"), { recursive: true });
-		writeFileSync(elsewhere, "{ // comment\n \"spaces\": [] }");
+		writeFileSync(elsewhere, '{ // comment\n "spaces": [] }');
 		assert.throws(() => addSpaceToConfig(vault, elsewhere, { name: "notes", path: "notes" }), /not strict JSON/);
-		assert.equal(readFileSync(elsewhere, "utf8"), "{ // comment\n \"spaces\": [] }");
+		assert.equal(readFileSync(elsewhere, "utf8"), '{ // comment\n "spaces": [] }');
 	});
 });
