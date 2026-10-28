@@ -6,6 +6,18 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
+    ignore:
+      # eslint-plugin-obsidianmd peers @eslint/js ^9 and @eslint/json 0.14.0
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/json"
+        update-types: ["version-update:semver-major"]
+      # @types/node 26 clashes with TypeScript's lib.dom in tsc
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # obsidian pins the exact peer versions of these; bump them with obsidian
+      - dependency-name: "@codemirror/state"
+      - dependency-name: "@codemirror/view"
     groups:
       minor-and-patch:
         patterns:
