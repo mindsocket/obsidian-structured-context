@@ -5,10 +5,7 @@
 	"main": "dist/main.js",
 	"type": "module",
 	"scripts": {
-		"build:map-views": "bun run --cwd ../structured-context-map-views/packages/map-views build",
-		"predev": "npm run build:map-views",
 		"dev": "node esbuild.config.mjs",
-		"prebuild": "npm run build:map-views",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test": "node scripts/unit-test.mjs",
 		"test:smoke": "node scripts/smoke-test.mjs",
@@ -33,7 +30,7 @@
 		"lefthook": "^2.1.4",
 		"obsidian": "1.10.3",
 		"structured-context": "^0.17.1",
-		"structured-context-map-views": "file:../structured-context-map-views/packages/map-views",
+		"structured-context-map-views": "^0.1.0",
 		"tslib": "2.4.0",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "8.35.1"

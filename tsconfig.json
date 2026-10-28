@@ -1,11 +1,6 @@
 {
 	"compilerOptions": {
 		"baseUrl": "src",
-		// PROTOTYPE: the map views library is a file: dependency with its own structured-context; resolve its
-		// imports to this plugin's copy so types and the bundle use one structured-context.
-		"paths": {
-			"structured-context/*": ["../node_modules/structured-context/dist/*"]
-		},
 		"inlineSourceMap": true,
 		"inlineSources": true,
 		"module": "ESNext",

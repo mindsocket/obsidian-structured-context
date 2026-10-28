@@ -40,7 +40,7 @@ const copyAssets = {
 	setup(build) {
 		build.onEnd(() => {
 			cpSync("manifest.json", "dist/manifest.json");
-			// Plugin styles plus the map-views library's prebuilt stylesheet (`npm run build:map-views` builds it).
+			// Plugin styles plus the map-views library's prebuilt stylesheet.
 			const mapViewsCss = readFileSync(require.resolve("structured-context-map-views/styles.css"), "utf8");
 			writeFileSync("dist/styles.css", `${readFileSync("styles.css", "utf8")}\n${mapViewsCss}`);
 		});
@@ -123,15 +123,6 @@ const context = await esbuild.context({
 		"@lezer/highlight",
 		"@lezer/lr",
 		...builtinModules],
-	// PROTOTYPE: while map-views is a file: dependency, its imports resolve from its own checkout's node_modules.
-	// Pin React and structured-context to this plugin's copies so the bundle has one of each. An aliased path
-	// resolves from the working directory, so a bare package name here means this plugin's copy. Drop this
-	// once map-views is installed from npm, where its peer dependencies resolve to the plugin's copies.
-	alias: {
-		"react": resolve(configDir, "node_modules/react"),
-		"react-dom": resolve(configDir, "node_modules/react-dom"),
-		"structured-context": "structured-context",
-	},
 	define: {
 		"process.env.NODE_ENV": JSON.stringify(prod ? "production" : "development"),
 	},
