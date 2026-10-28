@@ -30,7 +30,21 @@ npm run dev              # watch mode
 npm run install-to-vault # copy dist/ to vault (requires install.json)
 ```
 
-> **Note**: Pre-commit hooks run eslint with --fix on staged files. Pre-push hooks verify the build passes.
+Checks:
+
+```bash
+npm run lint       # biome (format and lint), then eslint with eslint-plugin-obsidianmd
+npm run lint:fix
+npm run typecheck
+npm test           # unit tests
+npm run test:smoke # installs the build into a throwaway vault and loads the plugin outside Obsidian
+```
+
+Pre-commit runs biome and eslint (with --fix, re-staged) on staged files, then the typecheck. Pre-push runs lint, tests, the build and the smoke test against the pushed commits in a detached worktree (`scripts/git-hooks/check-pushed-tree.sh`), so uncommitted work can neither mask a problem nor block a push. Biome handles formatting and general lint rules (tabs and double quotes, as in `.editorconfig`); eslint stays for the Obsidian-specific rules the plugin review uses. A git-ignored `lefthook-local.yml` can add personal hooks such as a secret scan.
+
+## Releases
+
+Releases go through the `/release <major|minor|patch>` skill. A release is a GitHub release carrying `main.js`, `manifest.json` and `styles.css`, created by `.github/workflows/release.yml` when `npm version` pushes the version tag (no `v` prefix). The plugin isn't published to npm.
 
 ### Configuring install location
 
