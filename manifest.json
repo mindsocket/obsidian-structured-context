@@ -1,7 +1,7 @@
 {
 	"id": "structured-context",
 	"name": "Structured Context",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"minAppVersion": "1.4.11",
 	"description": "Keep your content clean and your thinking clear. Inline validation for schema-governed markdown content.",
 	"author": "Roger Barnes",
