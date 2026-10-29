@@ -10,7 +10,7 @@ When you open or edit a file, the plugin checks it against your schema and highl
 
 ## Installation
 
-Not yet in the Obsidian community plugins browser. To try it, download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/mindsocket/obsidian-structured-context/releases/latest) into your vault's `.obsidian/plugins/structured-context/` folder, or install it with [BRAT](https://github.com/TfTHacker/obsidian42-brat).
+To install manually, download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/mindsocket/obsidian-structured-context/releases/latest) into your vault's `.obsidian/plugins/structured-context/` folder, or install it with [BRAT](https://github.com/TfTHacker/obsidian42-brat).
 
 ## Setup
 
@@ -44,6 +44,10 @@ Validation runs when you open a file and after you edit it. Semantic (AI-judged)
 | Validation debounce (ms) | How long to wait after you stop editing before re-validating (default 1500). Increase it if validation feels slow on large content sets. |
 
 The config is the nearest `.sctx.json` from the vault folder upward, otherwise `~/.config/structured-context/config.json`. Paths in a `.sctx.json` are relative to the folder that holds it, so `"path": "."` is the whole vault.
+
+## Files outside your vault
+
+The plugin reads a config from outside the vault only when it finds one there: the nearest `.sctx.json` above the vault folder, or the global `~/.config/structured-context/config.json`. It does this so the same spaces apply here, on the command line and in Claude Code. By default **Add space** creates a `.sctx.json` in your vault rather than touching those files. It writes to a config outside the vault only when that config is the one in use and you add a space without choosing **Save to new vault-level config**. Only notes in your vault are validated, but a config can also define spaces, or reference schema files, outside the vault. Those are read to validate a note (for example when a space folder contains your vault) and to draw the map view of such a space, which you pick by name. The plugin writes outside the vault only to that config.
 
 ## Security
 

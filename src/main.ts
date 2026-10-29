@@ -19,7 +19,7 @@ export default class StructuredContextPlugin extends Plugin {
 	private validator: Validator;
 	/** The config in use and where it came from; the settings tab reports it. */
 	resolvedConfig: ResolvedConfig;
-	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private debounceTimer: number | null = null;
 	/** Counts validations started; a run that finishes after a newer one started discards its result. */
 	private validationRun = 0;
 	/** The last problem shown in a notice, so a repeated failure is not shown again on every validation. */
@@ -89,14 +89,14 @@ export default class StructuredContextPlugin extends Plugin {
 	/** Validate the open note once changes have paused for the debounce interval. */
 	private scheduleValidation() {
 		this.cancelScheduledValidation();
-		this.debounceTimer = setTimeout(() => {
+		this.debounceTimer = window.setTimeout(() => {
 			this.debounceTimer = null;
 			void this.validateActive();
 		}, this.settings.debounceMs);
 	}
 
 	private cancelScheduledValidation() {
-		if (this.debounceTimer) clearTimeout(this.debounceTimer);
+		if (this.debounceTimer) window.clearTimeout(this.debounceTimer);
 		this.debounceTimer = null;
 	}
 

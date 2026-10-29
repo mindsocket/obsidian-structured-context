@@ -3,8 +3,8 @@
 	"name": "Structured Context",
 	"version": "0.1.1",
 	"minAppVersion": "1.4.11",
-	"description": "Keep your content clean and your thinking clear. Inline validation for schema-governed markdown content.",
+	"description": "Validate markdown notes against structured-context schemas, with inline errors, warnings and info in the editor.",
 	"author": "Roger Barnes",
-	"authorUrl": "https://github.com/mindsocket/obsidian-structured-context",
+	"authorUrl": "https://github.com/mindsocket",
 	"isDesktopOnly": true
 }

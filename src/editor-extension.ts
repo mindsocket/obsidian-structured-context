@@ -42,11 +42,11 @@ class InlineIssueWidget extends WidgetType {
 	}
 
 	toDOM(): HTMLElement {
-		const span = document.createElement("span");
-		span.className = `sctx-inline-issue sctx-${this.issue.severity}`;
-		span.setAttribute("aria-label", this.issue.message);
-		span.textContent = ` ${GLYPH[this.issue.severity]} ${this.issue.message}`;
-		return span;
+		return createSpan({
+			cls: `sctx-inline-issue sctx-${this.issue.severity}`,
+			attr: { "aria-label": this.issue.message },
+			text: ` ${GLYPH[this.issue.severity]} ${this.issue.message}`,
+		});
 	}
 
 	eq(other: InlineIssueWidget): boolean {
@@ -64,16 +64,11 @@ class IssuePanelWidget extends WidgetType {
 	}
 
 	toDOM(): HTMLElement {
-		const div = document.createElement("div");
-		div.className = `sctx-issue-panel sctx-${worst(this.issues)}`;
+		const div = createDiv({ cls: `sctx-issue-panel sctx-${worst(this.issues)}` });
 		for (const issue of this.issues) {
-			const item = document.createElement("div");
-			item.className = `sctx-issue-item sctx-${issue.severity}`;
-			const glyph = document.createElement("span");
-			glyph.className = "sctx-glyph";
-			glyph.textContent = GLYPH[issue.severity];
-			item.append(glyph, ` ${issue.message}`);
-			div.appendChild(item);
+			const item = div.createDiv({ cls: `sctx-issue-item sctx-${issue.severity}` });
+			item.createSpan({ cls: "sctx-glyph", text: GLYPH[issue.severity] });
+			item.append(` ${issue.message}`);
 		}
 		return div;
 	}
