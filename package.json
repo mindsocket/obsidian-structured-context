@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-structured-context",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"private": true,
 	"description": "Inline validation hints for structured-context spaces in Obsidian.",
 	"main": "dist/main.js",
