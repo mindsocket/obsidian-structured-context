@@ -8,6 +8,8 @@ on:
 
 permissions:
     contents: write
+    id-token: write
+    attestations: write
 
 jobs:
     release:
@@ -31,6 +33,13 @@ jobs:
               run: |
                   test "$(jq -r .version manifest.json)" = "$GITHUB_REF_NAME"
                   test "$(jq -r --arg v "$GITHUB_REF_NAME" '.[$v]' versions.json)" = "$(jq -r .minAppVersion manifest.json)"
+            - name: Attest build provenance
+              uses: actions/attest-build-provenance@v4
+              with:
+                  subject-path: |
+                      dist/main.js
+                      dist/manifest.json
+                      dist/styles.css
             - name: Create the release
               env:
                   GH_TOKEN: ${{ github.token }}
