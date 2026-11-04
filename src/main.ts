@@ -135,7 +135,13 @@ export default class StructuredContextPlugin extends Plugin {
 		if (!cmView) return;
 
 		cmView.dispatch({
-			effects: setValidationResult.of(result && { result, fieldMap: this.fieldMapOf(result.space) }),
+			effects: setValidationResult.of(
+				result && {
+					result,
+					fieldMap: this.fieldMapOf(result.space),
+					propertiesWidget: view.contentEl.querySelector(".metadata-container") !== null,
+				},
+			),
 		});
 	}
 
