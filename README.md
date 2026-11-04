@@ -36,6 +36,12 @@ Issues are shown by severity, each with its own colour and symbol:
 
 Validation runs when you open a file and after you edit it. Semantic (AI-judged) rules never run in the editor.
 
+## Map views
+
+The **Open map view** command opens a pane that draws a space as a map: pick a space, then one of the map views that apply to its schema. Map views come from the [map views library](https://github.com/mindsocket/structured-context-map-views): the ones bundled with it, ones in a plugin, and your own `map-views/` folder next to the config file. Clicking a node opens its note in a new tab. Map views with parameters show controls for them above the map.
+
+A map view that turns on **validation** (its `validation` setting or parameter: `error`, `warning` or `info`) draws validation results on the nodes they belong to, as a badge on the card, down to the severity you choose. The bundled strategy tree has a **Validation overlay** control. Results that belong to no node (a note of an unknown type, or a rule that applies to the whole space) are listed under the toolbar instead. Like the editor, the map view runs no AI-judged rules.
+
 ## Settings
 
 | Setting | Description |
