@@ -280,7 +280,18 @@ function MapViewHost({
 							// biome-ignore lint/suspicious/noArrayIndexKey: a static list with no stable id
 							<li key={i}>
 								{u.severity} · {u.source}: {u.message}
-								{u.location?.file ? ` (${u.location.file})` : ""}
+								{u.location?.file && spacePath && (
+									<>
+										{" "}
+										<button
+											type="button"
+											className="sctx-map-view-link"
+											onClick={() => onOpenSource(join(spacePath, u.location?.file ?? ""))}
+										>
+											{u.location.file}
+										</button>
+									</>
+								)}
 							</li>
 						))}
 					</ul>
