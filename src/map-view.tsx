@@ -8,6 +8,7 @@ import {
 	createSpaceContext,
 	type SpaceGraph,
 	type SpaceNode,
+	type ValidationResult,
 	validateSpace,
 } from "structured-context/api";
 import {
@@ -18,7 +19,6 @@ import {
 	ParameterControls,
 	type ParameterValues,
 	selectionFilter,
-	type ValidationInput,
 	viewValidationLevel,
 } from "structured-context-map-views";
 import { loadMapViewDefinitions } from "structured-context-map-views/node";
@@ -136,14 +136,6 @@ async function loadSpace(spaceName: string, config: Config, filter?: string): Pr
 	return { schemaId: context.schema.$id, graph: await assembleSpaceGraph(context, { filter }) };
 }
 
-/** Validate a space for the overlay. No judge is passed, so only expression rules run (AI-judged rules cost money). */
-async function validateForOverlay(spaceName: string, config: Config): Promise<ValidationInput> {
-	const { ruleViolations, hierarchyViolations, nodeErrors } = await validateSpace(
-		createSpaceContext(spaceName, config),
-	);
-	return { ruleViolations, hierarchyViolations, nodeErrors };
-}
-
 function MapViewHost({
 	resolved,
 	state,
@@ -203,14 +195,14 @@ function MapViewHost({
 	// Unfiltered data stands in only for map views without a filter, never for a pending selection.
 	const shown = filter ? (selection?.filter === filter ? selection.data : undefined) : data;
 
-	// Validation runs only when the view asks to show it, against the whole space, and attaches to the full graph.
+	// No judge is passed, so only expression rules run (AI-judged rules cost money). Validation runs only when the view asks to show it, against the whole space, and attaches to the full graph.
 	const validationLevel = definition ? viewValidationLevel(definition, values) : "off";
-	const [validation, setValidation] = useState<ValidationInput>();
+	const [validation, setValidation] = useState<ValidationResult>();
 	useEffect(() => {
 		setValidation(undefined);
 		if (!spaceName || validationLevel === "off") return;
 		let current = true;
-		validateForOverlay(spaceName, config).then(
+		validateSpace(createSpaceContext(spaceName, config)).then(
 			(v) => current && setValidation(v),
 			(e) => current && setError(e instanceof Error ? e.message : String(e)),
 		);
