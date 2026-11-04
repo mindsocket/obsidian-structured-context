@@ -8,14 +8,18 @@ import {
 	createSpaceContext,
 	type SpaceGraph,
 	type SpaceNode,
+	type ValidationResult,
+	validateSpace,
 } from "structured-context/api";
 import {
+	annotationsFrom,
 	MapView,
 	type MapViewDefinition,
 	mapViewsForSchema,
 	ParameterControls,
 	type ParameterValues,
 	selectionFilter,
+	viewValidationLevel,
 } from "structured-context-map-views";
 import { loadMapViewDefinitions } from "structured-context-map-views/node";
 import type { ResolvedConfig } from "./config-source";
@@ -191,6 +195,27 @@ function MapViewHost({
 	// Unfiltered data stands in only for map views without a filter, never for a pending selection.
 	const shown = filter ? (selection?.filter === filter ? selection.data : undefined) : data;
 
+	// No judge is passed, so only expression rules run (AI-judged rules cost money). Validation runs only when the view asks to show it, against the whole space, and attaches to the full graph.
+	const validationLevel = definition ? viewValidationLevel(definition, values) : "off";
+	const [validation, setValidation] = useState<ValidationResult>();
+	useEffect(() => {
+		setValidation(undefined);
+		if (!spaceName || validationLevel === "off") return;
+		let current = true;
+		validateSpace(createSpaceContext(spaceName, config)).then(
+			(v) => current && setValidation(v),
+			(e) => current && setError(e instanceof Error ? e.message : String(e)),
+		);
+		return () => {
+			current = false;
+		};
+	}, [config, spaceName, validationLevel]);
+	const { annotations, unattached } = useMemo(
+		() =>
+			data && validation ? annotationsFrom(validation, data.graph) : { annotations: undefined, unattached: [] },
+		[data, validation],
+	);
+
 	const setValue = (name: string, value: unknown) => {
 		if (!definition) return;
 		onStateChange({
@@ -244,9 +269,43 @@ function MapViewHost({
 			{definitionsError && <p className="sctx-map-view-error">{definitionsError}</p>}
 			{error && <p className="sctx-map-view-error">{error}</p>}
 			{data && !definition && <p>No map view applies to this space's schema.</p>}
+			{unattached.length > 0 && (
+				<details className="sctx-map-view-unattached">
+					<summary>
+						{unattached.length} validation {unattached.length === 1 ? "result isn't" : "results aren't"} on
+						a node
+					</summary>
+					<ul>
+						{unattached.map((u, i) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: a static list with no stable id
+							<li key={i}>
+								{u.severity} · {u.source}: {u.message}
+								{u.location?.file && spacePath && (
+									<>
+										{" "}
+										<button
+											type="button"
+											className="sctx-map-view-link"
+											onClick={() => onOpenSource(join(spacePath, u.location?.file ?? ""))}
+										>
+											{u.location.file}
+										</button>
+									</>
+								)}
+							</li>
+						))}
+					</ul>
+				</details>
+			)}
 			<div className="sctx-map-view-body">
 				{shown && definition && (
-					<MapView definition={definition} graph={shown.graph} values={values} onNodeSelect={openNode} />
+					<MapView
+						definition={definition}
+						graph={shown.graph}
+						values={values}
+						annotations={annotations}
+						onNodeSelect={openNode}
+					/>
 				)}
 			</div>
 		</div>

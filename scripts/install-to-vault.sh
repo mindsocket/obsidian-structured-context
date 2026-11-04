@@ -33,3 +33,16 @@ find "$DEST" -mindepth 1 -maxdepth 1 ! -name data.json -exec rm -rf {} +
 cp -R dist/. "$DEST/"
 
 echo "Installed to $DEST"
+
+# Reinstalling deletes the schemas folder the running plugin points at, so reload it if Obsidian is running
+# with this vault open. Best effort: without the obsidian CLI, or with the vault closed, reload it by hand.
+TIMEOUT=(); command -v timeout >/dev/null && TIMEOUT=(timeout 20)
+if command -v obsidian >/dev/null; then
+	if ${TIMEOUT[@]+"${TIMEOUT[@]}"} obsidian vault="$(basename "$VAULT")" plugin:reload id="$ID" >/dev/null 2>&1; then
+		echo "Reloaded $ID in Obsidian"
+	else
+		echo "Could not reload $ID: reload the plugin in Obsidian (the vault must be open)"
+	fi
+else
+	echo "obsidian CLI not found: reload $ID in Obsidian"
+fi

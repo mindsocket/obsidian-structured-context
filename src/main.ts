@@ -62,6 +62,9 @@ export default class StructuredContextPlugin extends Plugin {
 			}),
 		);
 
+		// A note opened from elsewhere (the map view) may not have its editor ready at active-leaf-change.
+		this.registerEvent(this.app.workspace.on("file-open", () => this.scheduleValidation()));
+
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
 				if (file.path === this.app.workspace.getActiveFile()?.path) this.scheduleValidation();
@@ -132,7 +135,13 @@ export default class StructuredContextPlugin extends Plugin {
 		if (!cmView) return;
 
 		cmView.dispatch({
-			effects: setValidationResult.of(result && { result, fieldMap: this.fieldMapOf(result.space) }),
+			effects: setValidationResult.of(
+				result && {
+					result,
+					fieldMap: this.fieldMapOf(result.space),
+					propertiesWidget: view.contentEl.querySelector(".metadata-container") !== null,
+				},
+			),
 		});
 	}
 

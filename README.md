@@ -36,6 +36,12 @@ Issues are shown by severity, each with its own colour and symbol:
 
 Validation runs when you open a file and after you edit it. Semantic (AI-judged) rules never run in the editor.
 
+## Map views
+
+The **Open map view** command opens a pane that shows a space visually laid out based on its structure and a map view definition. Map views come from the [map views library](https://github.com/mindsocket/structured-context-map-views): the ones bundled with it, defined in a plugin, or your your own `map-views/` folder alongside your config file.
+
+Some map views can overlay **validation** results matching those shown in individual files.
+
 ## Settings
 
 | Setting | Description |

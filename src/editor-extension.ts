@@ -17,6 +17,8 @@ export type FieldMap = Record<string, string>;
 export interface ShownResult {
 	result: FileValidationResult;
 	fieldMap?: FieldMap;
+	/** Obsidian's Properties widget is drawn in place of the frontmatter lines, so there are none to highlight. */
+	propertiesWidget?: boolean;
 }
 
 export const setValidationResult = StateEffect.define<ShownResult | null>();
@@ -144,7 +146,12 @@ function collectIssues(result: FileValidationResult): Array<{ key: string; issue
 	return out;
 }
 
-export function planDecorations(doc: Text, result: FileValidationResult, fieldMap: FieldMap = {}): DecorationPlan {
+export function planDecorations(
+	doc: Text,
+	result: FileValidationResult,
+	fieldMap: FieldMap = {},
+	propertiesWidget = false,
+): DecorationPlan {
 	const fm = parseFrontmatter(doc);
 	// Issues name the schema's fields; the note may use other keys for them
 	const fileKey = new Map(Object.entries(fieldMap).map(([file, canonical]) => [canonical, file]));
@@ -153,7 +160,7 @@ export function planDecorations(doc: Text, result: FileValidationResult, fieldMa
 
 	for (const { key, issue } of collectIssues(result)) {
 		const prop = extractProperty(key);
-		const lineNum = prop ? fm?.propertyLines.get(fileKey.get(prop) ?? prop) : undefined;
+		const lineNum = prop && !propertiesWidget ? fm?.propertyLines.get(fileKey.get(prop) ?? prop) : undefined;
 		if (lineNum === undefined) {
 			panel.push(issue);
 		} else {
@@ -170,8 +177,8 @@ export function planDecorations(doc: Text, result: FileValidationResult, fieldMa
 	};
 }
 
-function buildDecorations(doc: Text, { result, fieldMap }: ShownResult): DecorationSet {
-	const plan = planDecorations(doc, result, fieldMap);
+function buildDecorations(doc: Text, { result, fieldMap, propertiesWidget }: ShownResult): DecorationSet {
+	const plan = planDecorations(doc, result, fieldMap, propertiesWidget);
 	const builder = new RangeSetBuilder<Decoration>();
 
 	// RangeSetBuilder requires ranges in non-decreasing `from` order, which the plan's line order gives

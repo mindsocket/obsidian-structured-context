@@ -35,8 +35,8 @@
 		"jiti": "2.7.0",
 		"lefthook": "^2.1.4",
 		"obsidian": "1.14.4",
-		"structured-context": "^0.17.1",
-		"structured-context-map-views": "^0.1.0",
+		"structured-context": "^0.19.0",
+		"structured-context-map-views": "^0.2.0",
 		"tslib": "2.8.1",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "8.72.0"

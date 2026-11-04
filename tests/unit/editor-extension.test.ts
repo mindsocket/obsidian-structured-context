@@ -113,6 +113,15 @@ describe("planDecorations", () => {
 		assert.equal(plan.panel.length, 1);
 	});
 
+	it("puts property issues in the panel when the Properties widget replaces the frontmatter lines", () => {
+		const plan = planDecorations(DOC, result({ "schema:/status:enum": issue("status: bad") }), {}, true);
+		assert.equal(plan.lines.length, 0);
+		assert.deepEqual(
+			plan.panel.map((i) => i.message),
+			["status: bad"],
+		);
+	});
+
 	it("ignores an unterminated frontmatter block", () => {
 		const plan = planDecorations(
 			Text.of(["---", "status: x", "no end"]),
