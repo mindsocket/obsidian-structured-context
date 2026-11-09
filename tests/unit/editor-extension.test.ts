@@ -1,21 +1,25 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EditorState, Text } from "@codemirror/state";
-import type { FileValidationResult } from "structured-context/types";
+import type { FileValidationIssue, FileValidationResult } from "structured-context/types";
 import { planDecorations, setValidationResult, validationField } from "../../src/editor-extension";
 
-type Issue = FileValidationResult["errors"][string];
-const issue = (message: string, extra: Partial<Issue> = {}): Issue => ({ kind: "schema", message, ...extra });
+const issue = (message: string, extra: Partial<FileValidationIssue> = {}): FileValidationIssue => ({
+	kind: "schema",
+	message,
+	severity: "error",
+	...extra,
+});
 
-function result(errors: Record<string, Issue> = {}, warnings: Record<string, Issue> = {}): FileValidationResult {
+function result(issues: Record<string, FileValidationIssue> = {}): FileValidationResult {
+	const errorCount = Object.values(issues).filter((i) => i.severity === "error").length;
 	return {
 		file: "/vault/n.md",
 		label: "n.md",
 		space: "s",
-		errors,
-		errorCount: Object.keys(errors).length,
-		warnings,
-		warningCount: Object.keys(warnings).length,
+		issues,
+		errorCount,
+		warningCount: Object.keys(issues).length - errorCount,
 		inSpace: true,
 	};
 }
@@ -69,13 +73,10 @@ describe("planDecorations", () => {
 	it("shows warnings and info as distinct severities", () => {
 		const plan = planDecorations(
 			DOC,
-			result(
-				{},
-				{
-					"rule:warn": issue("warned", { kind: "rule", severity: "warning" }),
-					"rule:info": issue("fyi", { kind: "rule", severity: "info" }),
-				},
-			),
+			result({
+				"rule:warn": issue("warned", { kind: "rule", severity: "warning" }),
+				"rule:info": issue("fyi", { kind: "rule", severity: "info" }),
+			}),
 		);
 		assert.deepEqual(
 			plan.panel.map((p) => p.severity),
@@ -86,15 +87,14 @@ describe("planDecorations", () => {
 	it("lists errors before warnings before info, on a line and in the panel", () => {
 		const plan = planDecorations(
 			DOC,
-			result(
-				{ "schema:/status:a": issue("err"), "rule:e": issue("rule err", { kind: "rule", severity: "error" }) },
-				{
-					"rule:i": issue("info", { kind: "rule", severity: "info" }),
-					"rule:w": issue("warn", { kind: "rule", severity: "warning" }),
-					"schema:/status:b": issue("line warn"),
-					"schema:/status:c": issue("line info", { severity: "info" }),
-				},
-			),
+			result({
+				"rule:i": issue("info", { kind: "rule", severity: "info" }),
+				"schema:/status:c": issue("line info", { severity: "info" }),
+				"rule:w": issue("warn", { kind: "rule", severity: "warning" }),
+				"schema:/status:b": issue("line warn", { severity: "warning" }),
+				"schema:/status:a": issue("err"),
+				"rule:e": issue("rule err", { kind: "rule" }),
+			}),
 		);
 		assert.deepEqual(
 			plan.lines[0]?.issues.map((i) => i.severity),
@@ -156,10 +156,11 @@ describe("validationField", () => {
 	it("adds a line highlight, an inline widget per issue and a block panel, in document order", () => {
 		const state = start().update({
 			effects: setValidationResult.of({
-				result: result(
-					{ "schema:/status:a": issue("err"), "rule:r": issue("rule", { kind: "rule" }) },
-					{ "schema:/status:b": issue("warn") },
-				),
+				result: result({
+					"schema:/status:a": issue("err"),
+					"rule:r": issue("rule", { kind: "rule" }),
+					"schema:/status:b": issue("warn", { severity: "warning" }),
+				}),
 			}),
 		}).state;
 		const ranges = rangesOf(state);
@@ -182,7 +183,9 @@ describe("validationField", () => {
 
 	it("tints a line by its worst severity", () => {
 		const state = start().update({
-			effects: setValidationResult.of({ result: result({}, { "schema:/status:b": issue("warn") }) }),
+			effects: setValidationResult.of({
+				result: result({ "schema:/status:b": issue("warn", { severity: "warning" }) }),
+			}),
 		}).state;
 		assert.ok(rangesOf(state).some((r) => r.cls === "sctx-issue-line sctx-warning"));
 	});
