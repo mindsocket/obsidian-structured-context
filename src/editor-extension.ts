@@ -1,9 +1,8 @@
 import { RangeSetBuilder, StateEffect, StateField, type Text } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
-import type { FileValidationResult } from "structured-context/types";
+import type { FileValidationIssue, FileValidationResult } from "structured-context/types";
 
-/** How an issue is shown. Info is a rule violation of `info` severity, which structured-context reports among its warnings. */
-export type Severity = "error" | "warning" | "info";
+export type Severity = FileValidationIssue["severity"];
 
 const SEVERITY_ORDER: Severity[] = ["error", "warning", "info"];
 const GLYPH: Record<Severity, string> = { error: "✖", warning: "⚠", info: "ⓘ" };
@@ -135,17 +134,6 @@ function extractProperty(errorKey: string): string | null {
 	return prop || null;
 }
 
-function collectIssues(result: FileValidationResult): Array<{ key: string; issue: PlannedIssue }> {
-	const out: Array<{ key: string; issue: PlannedIssue }> = [];
-	for (const [key, issue] of Object.entries(result.errors)) {
-		out.push({ key, issue: { severity: "error", message: issue.message } });
-	}
-	for (const [key, issue] of Object.entries(result.warnings)) {
-		out.push({ key, issue: { severity: issue.severity === "info" ? "info" : "warning", message: issue.message } });
-	}
-	return out;
-}
-
 export function planDecorations(
 	doc: Text,
 	result: FileValidationResult,
@@ -158,7 +146,8 @@ export function planDecorations(
 	const byLine = new Map<number, PlannedIssue[]>();
 	const panel: PlannedIssue[] = [];
 
-	for (const { key, issue } of collectIssues(result)) {
+	for (const [key, { severity, message }] of Object.entries(result.issues)) {
+		const issue = { severity, message };
 		const prop = extractProperty(key);
 		const lineNum = prop && !propertiesWidget ? fm?.propertyLines.get(fileKey.get(prop) ?? prop) : undefined;
 		if (lineNum === undefined) {
