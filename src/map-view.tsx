@@ -6,7 +6,6 @@ import {
 	assembleSpaceGraph,
 	type Config,
 	createSpaceContext,
-	nodeIssues,
 	type SpaceGraph,
 	type SpaceNode,
 	type ValidationResult,
@@ -213,23 +212,8 @@ function MapViewHost({
 	}, [config, spaceName, validationLevel]);
 	const { annotations, unattached } = useMemo(
 		() =>
-			data && validation
-				? annotationsFrom(
-						{ issues: nodeIssues(validation), ruleViolations: validation.ruleViolations },
-						data.graph,
-					)
-				: { annotations: undefined, unattached: [] },
+			data && validation ? annotationsFrom(validation, data.graph) : { annotations: undefined, unattached: [] },
 		[data, validation],
-	);
-	// Unattached results are mostly nodes that failed their schema, so they aren't in the graph to find a file from.
-	const sourceFiles = useMemo(
-		() =>
-			new Map(
-				[...(validation?.nodeErrors ?? []), ...(validation?.refErrors ?? [])].flatMap((e) =>
-					e.source ? [[e.nodeId, e.source.file] as const] : [],
-				),
-			),
-		[validation],
 	);
 
 	const setValue = (name: string, value: unknown) => {
@@ -293,7 +277,7 @@ function MapViewHost({
 					</summary>
 					<ul>
 						{unattached.map((u, i) => {
-							const file = u.nodeId && sourceFiles.get(u.nodeId);
+							const file = u.location?.file;
 							return (
 								// biome-ignore lint/suspicious/noArrayIndexKey: a static list with no stable id
 								<li key={i}>
