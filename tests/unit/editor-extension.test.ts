@@ -1,25 +1,30 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EditorState, Text } from "@codemirror/state";
-import type { FileValidationIssue, FileValidationResult } from "structured-context/types";
+import type { FileValidationResult, NodeId, ValidationIssue } from "structured-context/types";
 import { planDecorations, setValidationResult, validationField } from "../../src/editor-extension";
 
-const issue = (message: string, extra: Partial<FileValidationIssue> = {}): FileValidationIssue => ({
+type Issue = Omit<ValidationIssue, "key">;
+
+const issue = (message: string, extra: Partial<Issue> = {}): Issue => ({
 	kind: "schema",
 	message,
 	severity: "error",
+	nodeId: "n.md" as NodeId,
 	...extra,
 });
 
-function result(issues: Record<string, FileValidationIssue> = {}): FileValidationResult {
-	const errorCount = Object.values(issues).filter((i) => i.severity === "error").length;
+/** A result with these issues, each keyed as structured-context keys it */
+function result(byKey: Record<string, Issue> = {}): FileValidationResult {
+	const issues = Object.entries(byKey).map(([key, i]) => ({ ...i, key }) as ValidationIssue);
+	const errorCount = issues.filter((i) => i.severity === "error").length;
 	return {
 		file: "/vault/n.md",
 		label: "n.md",
 		space: "s",
 		issues,
 		errorCount,
-		warningCount: Object.keys(issues).length - errorCount,
+		warningCount: issues.length - errorCount,
 		inSpace: true,
 	};
 }

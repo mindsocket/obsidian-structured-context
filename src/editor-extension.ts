@@ -1,8 +1,8 @@
 import { RangeSetBuilder, StateEffect, StateField, type Text } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
-import type { FileValidationIssue, FileValidationResult } from "structured-context/types";
+import type { FileValidationResult, ValidationIssue } from "structured-context/types";
 
-export type Severity = FileValidationIssue["severity"];
+export type Severity = ValidationIssue["severity"];
 
 const SEVERITY_ORDER: Severity[] = ["error", "warning", "info"];
 const GLYPH: Record<Severity, string> = { error: "✖", warning: "⚠", info: "ⓘ" };
@@ -146,7 +146,7 @@ export function planDecorations(
 	const byLine = new Map<number, PlannedIssue[]>();
 	const panel: PlannedIssue[] = [];
 
-	for (const [key, { severity, message }] of Object.entries(result.issues)) {
+	for (const { key, severity, message } of result.issues) {
 		const issue = { severity, message };
 		const prop = extractProperty(key);
 		const lineNum = prop && !propertiesWidget ? fm?.propertyLines.get(fileKey.get(prop) ?? prop) : undefined;
