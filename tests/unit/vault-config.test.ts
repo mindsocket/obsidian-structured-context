@@ -24,8 +24,8 @@ describe("addSpaceTarget", () => {
 		assert.equal(addSpaceTarget(BASE, GLOBAL), GLOBAL);
 	});
 
-	it("is a new .sctx.json at the vault root when none was found, or when asked for", () => {
-		assert.equal(addSpaceTarget(BASE, undefined), join(BASE, ".sctx.json"));
+	it("is a new .sctx/config.json at the vault root when none was found, or when asked for", () => {
+		assert.equal(addSpaceTarget(BASE, undefined), join(BASE, ".sctx", "config.json"));
 		assert.equal(addSpaceTarget(BASE, GLOBAL, true), vaultConfigPath(BASE));
 	});
 });
