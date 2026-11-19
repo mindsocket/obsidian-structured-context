@@ -34,10 +34,7 @@ const locateOnDisk: ConfigLocator = (startDir) => {
 	return source === "none" ? undefined : path;
 };
 
-/**
- * The config structured-context discovers from the vault folder: the nearest .sctx.json or .sctx/config.json walking up, then the
- * global config. With none, there are no spaces and no error: adding a space creates one.
- */
+/** The config structured-context discovers from the vault folder. With none, there are no spaces and no error: adding a space creates one. */
 export function resolveConfig(
 	basePath: string,
 	loader: ConfigLoader = loadFromDisk,
