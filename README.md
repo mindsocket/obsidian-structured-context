@@ -38,7 +38,7 @@ Validation runs when you open a file and after you edit it. Semantic (AI-judged)
 
 ## Map views
 
-The **Open map view** command opens a pane that shows a space visually laid out based on its structure and a map view definition. Map views come from the [map views library](https://github.com/mindsocket/structured-context-map-views): the ones bundled with it, defined in a plugin, or your your own `map-views/` folder alongside your config file.
+The **Open map view** command opens a pane that shows a space visually laid out based on its structure and a map view definition. Map views come from the [map views library](https://github.com/mindsocket/structured-context-map-views): the ones bundled with it, defined in a plugin, or your own `.sctx/map-views/` folder next to your config.
 
 Some map views can overlay **validation** results matching those shown in individual files.
 
@@ -49,7 +49,7 @@ Some map views can overlay **validation** results matching those shown in indivi
 | Spaces | The spaces of the config the command line finds; those outside this vault are dimmed. **Add space** (a name, a vault folder and an optional schema) saves to that config, or creates a `.sctx.json` at the vault root when there is none. When the config is elsewhere, such as your global one, **Save to new vault-level config** creates the vault's own `.sctx.json` instead, which then takes over from it. To rename, change or remove a space, edit the config file. |
 | Validation debounce (ms) | How long to wait after you stop editing before re-validating (default 1500). Increase it if validation feels slow on large content sets. |
 
-The config is the nearest `.sctx.json` from the vault folder upward, otherwise `~/.config/structured-context/config.json`. Paths in a `.sctx.json` are relative to the folder that holds it, so `"path": "."` is the whole vault.
+The config is the nearest `.sctx.json` or `.sctx/config.json` from the vault folder upward, otherwise `~/.config/structured-context/config.json`. Paths in a `.sctx.json` are relative to the folder that holds it, so `"path": "."` is the whole vault.
 
 ## Files outside your vault
 
@@ -57,7 +57,7 @@ The plugin reads a config from outside the vault only when it finds one there: t
 
 ## Security
 
-**Only use configs and schemas you trust.** Opening a vault validates its notes against whatever config the plugin finds (see above). Schema rules are JSONata expressions, and a crafted schema can run arbitrary code. A config can also declare plugins, which structured-context loads as JavaScript from a `plugins/` folder next to the config file. Both run inside Obsidian with your user's permissions, so treat a shared or downloaded vault's `.sctx.json`, schemas and `plugins/` folder like code. See structured-context's [security notice](https://github.com/mindsocket/structured-context/blob/main/docs/config.md#security-notice).
+**Only use configs and schemas you trust.** Opening a vault validates its notes against whatever config the plugin finds (see above). Schema rules are JSONata expressions, and a crafted schema can run arbitrary code. A config can also declare plugins, which structured-context loads as JavaScript from the `.sctx/plugins/` folder of the config root. Both run inside Obsidian with your user's permissions, so treat a shared or downloaded vault's `.sctx.json`, schemas and `plugins/` folder like code. See structured-context's [security notice](https://github.com/mindsocket/structured-context/blob/main/docs/config.md#security-notice).
 
 ## Development
 
