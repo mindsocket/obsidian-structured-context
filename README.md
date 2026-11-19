@@ -57,7 +57,7 @@ The plugin reads a config from outside the vault only when it finds one there: t
 
 ## Security
 
-**Only use configs and schemas you trust.** Opening a vault validates its notes against whatever config the plugin finds (see above). Schema rules are JSONata expressions, and a crafted schema can run arbitrary code. A config can also declare plugins, which structured-context loads as JavaScript from the `.sctx/plugins/` folder of the config root. Both run inside Obsidian with your user's permissions, so treat a shared or downloaded vault's `.sctx.json`, schemas and `plugins/` folder like code. See structured-context's [security notice](https://github.com/mindsocket/structured-context/blob/main/docs/config.md#security-notice).
+**Only use configs and schemas you trust.** Opening a vault validates its notes against whatever config the plugin finds (see above). Schema rules are JSONata expressions, and a crafted schema can run arbitrary code. A config can also declare plugins, which structured-context loads as JavaScript from a `plugins/` folder next to the config file. Both run inside Obsidian with your user's permissions, so treat a shared or downloaded vault's `.sctx.json`, schemas and `plugins/` folder like code. See structured-context's [security notice](https://github.com/mindsocket/structured-context/blob/main/docs/config.md#security-notice).
 
 ## Development
 
