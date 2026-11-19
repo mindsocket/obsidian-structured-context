@@ -9,7 +9,7 @@ export function vaultConfigPath(basePath: string): string {
 	return join(basePath, RESOURCES_DIR, "config.json");
 }
 
-/** A config in the vault root is either `.sctx.json` there or `.sctx/config.json`; relative paths resolve from the root. */
+/** Whether the config sits at the vault root as `.sctx.json` or `.sctx/config.json`, so the vault is its config root. */
 function isVaultRootConfig(basePath: string, configFile: string): boolean {
 	const dir = dirname(configFile);
 	return dir === basePath || (dir === join(basePath, RESOURCES_DIR) && basename(configFile) === "config.json");

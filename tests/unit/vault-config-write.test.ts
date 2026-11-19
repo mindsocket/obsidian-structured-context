@@ -36,6 +36,12 @@ describe("adding a space with the real addSpace", () => {
 		assert.deepEqual(read(target).spaces, [{ name: "notes", path: "notes", schema: "./schemas/mine.json" }]);
 	});
 
+	it("keeps vault-relative paths in an existing .sctx.json at the vault root", () => {
+		const target = join(vault, ".sctx.json");
+		addSpaceToConfig(vault, target, { name: "notes", path: "notes", schema: "schemas/mine.json" });
+		assert.deepEqual(read(target).spaces, [{ name: "notes", path: "notes", schema: "./schemas/mine.json" }]);
+	});
+
 	it("saves a vault schema as an absolute path in a config elsewhere, and the space path too", () => {
 		addSpaceToConfig(vault, elsewhere, { name: "notes", path: "notes", schema: "schemas/mine.json" });
 		assert.deepEqual(read(elsewhere).spaces, [
