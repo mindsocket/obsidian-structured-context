@@ -85,7 +85,7 @@ class AddSpaceModal extends Modal {
 
 	/**
 	 * `target` is the config file the space is saved to. When that is an existing config elsewhere,
-	 * `canUseVaultConfig` offers a new .sctx.json at the vault root instead.
+	 * `canUseVaultConfig` offers a new .sctx/config.json in the vault instead.
 	 */
 	constructor(
 		app: App,
@@ -225,7 +225,7 @@ export class StructuredContextSettingTab extends PluginSettingTab {
 		const { error, file } = this.plugin.resolvedConfig;
 		const summary = file
 			? `Config: ${file}`
-			: "No config found. Adding a space creates a .sctx.json in your vault.";
+			: "No config found. Adding a space creates a .sctx/config.json in your vault.";
 		containerEl.createEl("p", { text: summary, cls: "setting-item-description" });
 		if (error) {
 			containerEl.createEl("p", {

@@ -15,8 +15,8 @@ To install manually, download `main.js`, `manifest.json` and `styles.css` from t
 ## Setup
 
 1. Enable the plugin in Obsidian settings.
-2. If your vault already has a `.sctx.json` at its root, or you use [structured-context](https://github.com/mindsocket/structured-context) on the command line or in Claude Code, you're done: the plugin finds the same config.
-3. Otherwise open the plugin's settings and, under **Spaces**, add a space: a name, the vault folder that holds your content, and optionally a schema: a bundled or plugin schema, or a JSON file in your vault. Without a schema, the bundled `strategy_general.json` is used. This creates a `.sctx.json` at the vault root, which the command line and Claude Code read too.
+2. If your vault already has a `.sctx.json` or `.sctx/config.json` at its root, or you use [structured-context](https://github.com/mindsocket/structured-context) on the command line or in Claude Code, you're done: the plugin finds the same config.
+3. Otherwise open the plugin's settings and, under **Spaces**, add a space: a name, the vault folder that holds your content, and optionally a schema: a bundled or plugin schema, or a JSON file in your vault. Without a schema, the bundled `strategy_general.json` is used. This creates `.sctx/config.json` at the vault root, which the command line and Claude Code read too.
 4. Open a markdown file in that folder.
 
 Files outside every space are ignored. The settings page shows which config is in use and the spaces it defines.
@@ -38,7 +38,7 @@ Validation runs when you open a file and after you edit it. Semantic (AI-judged)
 
 ## Map views
 
-The **Open map view** command opens a pane that shows a space visually laid out based on its structure and a map view definition. Map views come from the [map views library](https://github.com/mindsocket/structured-context-map-views): the ones bundled with it, defined in a plugin, or your your own `map-views/` folder alongside your config file.
+The **Open map view** command opens a pane that shows a space visually laid out based on its structure and a map view definition. Map views come from the [map views library](https://github.com/mindsocket/structured-context-map-views): the ones bundled with it, defined in a plugin, or your own `.sctx/map-views/` folder next to your config.
 
 Some map views can overlay **validation** results matching those shown in individual files.
 
@@ -46,14 +46,14 @@ Some map views can overlay **validation** results matching those shown in indivi
 
 | Setting | Description |
 |---|---|
-| Spaces | The spaces of the config the command line finds; those outside this vault are dimmed. **Add space** (a name, a vault folder and an optional schema) saves to that config, or creates a `.sctx.json` at the vault root when there is none. When the config is elsewhere, such as your global one, **Save to new vault-level config** creates the vault's own `.sctx.json` instead, which then takes over from it. To rename, change or remove a space, edit the config file. |
+| Spaces | The spaces of the config the command line finds; those outside this vault are dimmed. **Add space** (a name, a vault folder and an optional schema) saves to that config, or creates `.sctx/config.json` at the vault root when there is none. When the config is elsewhere, such as your global one, **Save to new vault-level config** creates the vault's own `.sctx/config.json` instead, which then takes over from it. To rename, change or remove a space, edit the config file. |
 | Validation debounce (ms) | How long to wait after you stop editing before re-validating (default 1500). Increase it if validation feels slow on large content sets. |
 
-The config is the nearest `.sctx.json` from the vault folder upward, otherwise `~/.config/structured-context/config.json`. Paths in a `.sctx.json` are relative to the folder that holds it, so `"path": "."` is the whole vault.
+The config is the nearest `.sctx.json` or `.sctx/config.json` from the vault folder upward, otherwise `~/.config/structured-context/config.json`. Paths in the config are relative to the folder that holds `.sctx.json` or `.sctx/`, so `"path": "."` is the whole vault.
 
 ## Files outside your vault
 
-The plugin reads a config from outside the vault only when it finds one there: the nearest `.sctx.json` above the vault folder, or the global `~/.config/structured-context/config.json`. It does this so the same spaces apply here, on the command line and in Claude Code. By default **Add space** creates a `.sctx.json` in your vault rather than touching those files. It writes to a config outside the vault only when that config is the one in use and you add a space without choosing **Save to new vault-level config**. Only notes in your vault are validated, but a config can also define spaces, or reference schema files, outside the vault. Those are read to validate a note (for example when a space folder contains your vault) and to draw the map view of such a space, which you pick by name. The plugin writes outside the vault only to that config.
+The plugin reads a config from outside the vault only when it finds one there: the nearest `.sctx.json` or `.sctx/config.json` above the vault folder, or the global `~/.config/structured-context/config.json`. It does this so the same spaces apply here, on the command line and in Claude Code. By default **Add space** creates `.sctx/config.json` in your vault rather than touching those files. It writes to a config outside the vault only when that config is the one in use and you add a space without choosing **Save to new vault-level config**. Only notes in your vault are validated, but a config can also define spaces, or reference schema files, outside the vault. Those are read to validate a note (for example when a space folder contains your vault) and to draw the map view of such a space, which you pick by name. The plugin writes outside the vault only to that config.
 
 ## Security
 

@@ -1,10 +1,18 @@
-import { dirname, join } from "node:path";
-import { addSpace, LOCAL_CONFIG_FILE } from "structured-context/api";
+import { basename, dirname, join } from "node:path";
+import { addSpace } from "structured-context/api";
 import { DEFAULT_SCHEMA, type SpaceSetting } from "./config-source";
 
-/** The `.sctx.json` at the vault root: where a space goes when there is no config yet. */
+const RESOURCES_DIR = ".sctx";
+
+/** The `.sctx/config.json` of the vault root: where a space goes when there is no config yet. */
 export function vaultConfigPath(basePath: string): string {
-	return join(basePath, LOCAL_CONFIG_FILE);
+	return join(basePath, RESOURCES_DIR, "config.json");
+}
+
+/** A config in the vault root is either `.sctx.json` there or `.sctx/config.json`; relative paths resolve from the root. */
+function isVaultRootConfig(basePath: string, configFile: string): boolean {
+	const dir = dirname(configFile);
+	return dir === basePath || (dir === join(basePath, RESOURCES_DIR) && basename(configFile) === "config.json");
 }
 
 /** The file a new space is saved to: the discovered config, else (or when asked for) a new one at the vault root. */
@@ -19,7 +27,7 @@ export function addSpaceTarget(basePath: string, discoveredFile: string | undefi
 function schemaFor(basePath: string, schema: string | undefined, named: readonly string[], configFile: string): string {
 	if (!schema) return DEFAULT_SCHEMA;
 	if (named.includes(schema)) return schema;
-	return dirname(configFile) === basePath ? `./${schema}` : join(basePath, schema);
+	return isVaultRootConfig(basePath, configFile) ? `./${schema}` : join(basePath, schema);
 }
 
 /** Writes a space to a config file; structured-context's addSpace unless a test passes its own. */
