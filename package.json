@@ -35,7 +35,7 @@
 		"jiti": "2.7.0",
 		"lefthook": "^2.1.4",
 		"obsidian": "1.14.4",
-		"structured-context": "^0.23.0",
+		"structured-context": "^0.25.0",
 		"structured-context-map-views": "^0.6.0",
 		"tslib": "2.8.1",
 		"typescript": "^5.8.3",
@@ -44,5 +44,10 @@
 	"dependencies": {
 		"react": "^19.3.0",
 		"react-dom": "^19.3.0"
+	},
+	"overrides": {
+		"structured-context-map-views": {
+			"structured-context": "$structured-context"
+		}
 	}
 }
