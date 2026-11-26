@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import type { Config } from "structured-context/api";
-import { type ConfigLoader, resolveConfig } from "../../src/config-source";
+import { type ConfigLoader, resolveConfig, spaceOf } from "../../src/config-source";
 
 const BASE = join("/", "vault");
 const found = () => join(BASE, ".sctx.json");
@@ -36,5 +36,20 @@ describe("resolveConfig", () => {
 		assert.equal(result.error, "bad json");
 		assert.deepEqual(result.config.spaces, []);
 		assert.equal(result.file, found());
+	});
+});
+
+const at = (...parts: string[]) => join(BASE, ...parts);
+const notes = { name: "notes", path: at("notes") };
+const config: Config = { spaces: [notes, { name: "everything", path: BASE }] };
+
+describe("spaceOf", () => {
+	it("takes the first space whose folder holds the file, as validateFile does", () => {
+		assert.equal(spaceOf(config, at("notes", "sub", "a.md")), "notes");
+		assert.equal(spaceOf(config, at("daily", "a.md")), "everything");
+	});
+
+	it("does not treat a folder that only shares a name prefix as inside the space", () => {
+		assert.equal(spaceOf({ spaces: [notes] }, at("notes-old", "a.md")), undefined);
 	});
 });

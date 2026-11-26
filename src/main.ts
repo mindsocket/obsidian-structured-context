@@ -3,12 +3,11 @@ import bundledSchemas from "virtual:bundled-schemas";
 import type { EditorView } from "@codemirror/view";
 import { type FileSystemAdapter, MarkdownView, Notice, Plugin, type TAbstractFile, type TFile } from "obsidian";
 import { listSchemas, setBundledSchemasDir } from "structured-context/api";
-import { type ResolvedConfig, resolveConfig } from "./config-source";
+import { type ResolvedConfig, resolveConfig, spaceOf } from "./config-source";
 import { type FieldMap, setValidationResult, validationField } from "./editor-extension";
 import { MAP_VIEW_TYPE, MapViewPane } from "./map-view";
 import { writeSchemaFiles } from "./schema-files";
 import { DEFAULT_SETTINGS, type PluginSettings, StructuredContextSettingTab } from "./settings";
-import { spaceOf } from "./space-scope";
 import { Validator } from "./validator";
 
 function isMarkdown(path: string): boolean {
