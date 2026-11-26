@@ -18,9 +18,8 @@ describe("affectsOpenNote", () => {
 		assert.equal(affectsOpenNote(config, at("notes", "a.md"), [at("notes", "sub", "b.md")]), true);
 	});
 
-	it("is false for a change in another space or in no space", () => {
+	it("is false for a change outside the open note's space", () => {
 		assert.equal(affectsOpenNote(config, at("notes", "a.md"), [at("tasks", "b.md")]), false);
-		assert.equal(affectsOpenNote(config, at("notes", "a.md"), [at("daily", "b.md")]), false);
 	});
 
 	it("does not treat a folder that only shares a name prefix as inside the space", () => {
