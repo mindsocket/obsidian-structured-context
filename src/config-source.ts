@@ -1,3 +1,4 @@
+import { sep } from "node:path";
 import { type Config, loadConfig, resolveConfigPath, setConfigPath } from "structured-context/api";
 
 /** Bundled schema given to spaces added without one; structured-context requires an explicit schema. */
@@ -47,4 +48,17 @@ export function resolveConfig(
 	} catch (e) {
 		return { config: { spaces: [] }, file, error: e instanceof Error ? e.message : String(e) };
 	}
+}
+
+function contains(spacePath: string, filePath: string): boolean {
+	const dir = spacePath.endsWith(sep) ? spacePath : `${spacePath}${sep}`;
+	return filePath === spacePath || filePath.startsWith(dir);
+}
+
+/**
+ * The name of the space a file is validated in. Matches structured-context's `validateFile`, which takes the first
+ * space whose folder holds the file. Paths are absolute, as the loaded config's space paths are.
+ */
+export function spaceOf(config: Config, filePath: string): string | undefined {
+	return config.spaces.find((space) => contains(space.path, filePath))?.name;
 }
