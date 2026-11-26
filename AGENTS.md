@@ -64,7 +64,7 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
 - `src/validator.ts` — Wraps `validateFile()` from structured-context, caches config
 - `src/editor-extension.ts` — CM6 StateField for validation decorations. `planDecorations` decides what to draw (error, warning and info); it is pure and unit-tested
 - `src/config-source.ts` — Finds the config structured-context discovers from the vault folder. No Obsidian imports, so it is unit-tested
-- `src/space-scope.ts` — Which space a note is validated in, so a vault change re-validates the open note only when it is in the same space. No Obsidian imports, so it is unit-tested
+- `src/space-scope.ts` — Which space a note is validated in. `main.ts` counts note changes per space with it, so a change re-validates only notes in that space. No Obsidian imports, so it is unit-tested
 - `src/settings.ts` — Plugin settings UI (spaces listed from the config and added to it, debounce)
 - `esbuild.config.mjs` — Build config; embeds structured-context's schemas (`virtual:bundled-schemas`) and copies manifest.json and styles.css to `dist/`
 - `scripts/smoke-test.mjs` — Installs the release files into a throwaway vault and validates fixture notes (`tests/smoke/`) with `obsidian` stubbed
@@ -75,7 +75,7 @@ Then `npm run install-to-vault` will copy the built plugin to your vault.
    - Calls `setBundledSchemasDir()` to point to bundled schemas
    - Discovers the config (`resolveConfig`) and creates the Validator with it; adding a space rebuilds both and revalidates the open note
    - Registers CM6 extension
-   - Sets up event handlers for file open/modify
+   - Sets up event handlers for file open and for note changes. A note is validated again only when its space has changed since its view last showed results
 
 2. **File validation** (`validateFile`):
    - Resolves vault-relative path to absolute
