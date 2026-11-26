@@ -2,35 +2,20 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import type { Config } from "structured-context/api";
-import { affectsOpenNote } from "../../src/space-scope";
+import { spaceOf } from "../../src/space-scope";
 
 const vault = join("/", "vault");
 const at = (...parts: string[]) => join(vault, ...parts);
-const config: Config = {
-	spaces: [
-		{ name: "notes", path: at("notes") },
-		{ name: "tasks", path: at("tasks") },
-	],
-};
+const notes = { name: "notes", path: at("notes") };
+const config: Config = { spaces: [notes, { name: "everything", path: vault }] };
 
-describe("affectsOpenNote", () => {
-	it("is true for a change in the open note's space", () => {
-		assert.equal(affectsOpenNote(config, at("notes", "a.md"), [at("notes", "sub", "b.md")]), true);
-	});
-
-	it("is false for a change outside the open note's space", () => {
-		assert.equal(affectsOpenNote(config, at("notes", "a.md"), [at("tasks", "b.md")]), false);
+describe("spaceOf", () => {
+	it("takes the first space whose folder holds the file, as validateFile does", () => {
+		assert.equal(spaceOf(config, at("notes", "sub", "a.md")), "notes");
+		assert.equal(spaceOf(config, at("daily", "a.md")), "everything");
 	});
 
 	it("does not treat a folder that only shares a name prefix as inside the space", () => {
-		assert.equal(affectsOpenNote(config, at("notes", "a.md"), [at("notes-old", "b.md")]), false);
-	});
-
-	it("is true when either path of a rename is in the space", () => {
-		assert.equal(affectsOpenNote(config, at("notes", "a.md"), [at("daily", "b.md"), at("notes", "b.md")]), true);
-	});
-
-	it("is false when the open note is in no space", () => {
-		assert.equal(affectsOpenNote(config, at("daily", "a.md"), [at("daily", "b.md")]), false);
+		assert.equal(spaceOf({ spaces: [notes] }, at("notes-old", "a.md")), undefined);
 	});
 });

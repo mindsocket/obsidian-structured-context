@@ -8,7 +8,7 @@ import { type FieldMap, setValidationResult, validationField } from "./editor-ex
 import { MAP_VIEW_TYPE, MapViewPane } from "./map-view";
 import { writeSchemaFiles } from "./schema-files";
 import { DEFAULT_SETTINGS, type PluginSettings, StructuredContextSettingTab } from "./settings";
-import { affectsOpenNote } from "./space-scope";
+import { spaceOf } from "./space-scope";
 import { Validator } from "./validator";
 
 function isMarkdown(path: string): boolean {
@@ -23,11 +23,14 @@ export default class StructuredContextPlugin extends Plugin {
 	private debounceTimer: number | null = null;
 	/** Counts validations started; a run that finishes after a newer one started discards its result. */
 	private validationRun = 0;
+	/** Counts note changes in each space, by space name. */
+	private spaceChanges = new Map<string, number>();
 	/**
-	 * The view and note the latest validation is for. Opening a note fires both active-leaf-change and file-open,
-	 * so a request for the same view and note is skipped until a change clears this.
+	 * The note each view's decorations are for, and its space's change count when they were computed. A view whose
+	 * entry is current is not validated again: opening a note fires both active-leaf-change and file-open, and a tab
+	 * returned to keeps its decorations.
 	 */
-	private validated: { view: MarkdownView; path: string } | null = null;
+	private validated = new WeakMap<MarkdownView, { path: string; changes: number }>();
 	/** The last problem shown in a notice, so a repeated failure is not shown again on every validation. */
 	private lastNotice: string | null = null;
 
@@ -71,27 +74,21 @@ export default class StructuredContextPlugin extends Plugin {
 		// A note opened from elsewhere (the map view) may not have its editor ready at active-leaf-change.
 		this.registerEvent(this.app.workspace.on("file-open", () => this.scheduleValidation()));
 
-		this.registerEvent(
-			this.app.vault.on("modify", (file) => {
-				if (file.path === this.app.workspace.getActiveFile()?.path) this.revalidate();
-			}),
-		);
-
-		// Adding, removing or renaming a note in the open note's space can change its links, hierarchy and duplicate
-		// checks. Obsidian reports every existing file as created while the vault loads, so listen only once it has.
+		// Any change to a note can change the results of every note in its space: links, hierarchy, duplicate checks
+		// and rules that read other nodes. Obsidian reports every existing file as created while the vault loads, so
+		// listen only once it has.
 		this.app.workspace.onLayoutReady(() => {
 			const onNoteChange = (file: TAbstractFile, oldPath?: string) => {
-				const open = this.app.workspace.getActiveFile();
 				const changed = [file.path, ...(oldPath === undefined ? [] : [oldPath])].filter(isMarkdown);
-				if (!open || changed.length === 0) return;
-				const base = this.vaultBasePath();
-				const inSpace = affectsOpenNote(
-					this.resolvedConfig.config,
-					join(base, open.path),
-					changed.map((path) => join(base, path)),
+				const spaces = new Set(
+					changed.map((path) => this.spaceOfNote(path)).filter((space) => space !== undefined),
 				);
-				if (inSpace) this.revalidate();
+				for (const space of spaces) this.spaceChanges.set(space, this.changesIn(space) + 1);
+				const open = this.app.workspace.getActiveFile();
+				const openSpace = open && this.spaceOfNote(open.path);
+				if (openSpace && spaces.has(openSpace)) this.scheduleValidation();
 			};
+			this.registerEvent(this.app.vault.on("modify", onNoteChange));
 			this.registerEvent(this.app.vault.on("create", onNoteChange));
 			this.registerEvent(this.app.vault.on("delete", onNoteChange));
 			this.registerEvent(this.app.vault.on("rename", onNoteChange));
@@ -104,10 +101,13 @@ export default class StructuredContextPlugin extends Plugin {
 		this.cancelScheduledValidation();
 	}
 
-	/** Something the open note's result depends on changed: validate it again once changes pause. */
-	private revalidate() {
-		this.validated = null;
-		this.scheduleValidation();
+	/** The space a vault-relative note path is validated in. */
+	private spaceOfNote(path: string): string | undefined {
+		return spaceOf(this.resolvedConfig.config, join(this.vaultBasePath(), path));
+	}
+
+	private changesIn(space: string | undefined): number {
+		return space === undefined ? 0 : (this.spaceChanges.get(space) ?? 0);
 	}
 
 	/** Validate the open note once changes have paused for the debounce interval. */
@@ -128,7 +128,9 @@ export default class StructuredContextPlugin extends Plugin {
 	private async validateActive() {
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (!view?.file) return;
-		if (this.validated?.view === view && this.validated.path === view.file.path) return;
+		const shown = this.validated.get(view);
+		const changes = this.changesIn(this.spaceOfNote(view.file.path));
+		if (shown?.path === view.file.path && shown.changes === changes) return;
 		await this.validateFile(view.file, view);
 	}
 
@@ -137,7 +139,12 @@ export default class StructuredContextPlugin extends Plugin {
 		// dotfiles, so discover it afresh on every validation. It is a few small JSON reads.
 		this.refreshConfig();
 		const run = ++this.validationRun;
-		this.validated = { view, path: file.path };
+		const mark = { path: file.path, changes: this.changesIn(this.spaceOfNote(file.path)) };
+		this.validated.set(view, mark);
+		// This run's decorations may never reach the view, so it must be validated again when next asked
+		const unmark = () => {
+			if (this.validated.get(view) === mark) this.validated.delete(view);
+		};
 
 		const absolutePath = join(this.vaultBasePath(), file.path);
 
@@ -148,17 +155,20 @@ export default class StructuredContextPlugin extends Plugin {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			this.notifyOnce(`Structured Context validation failed: ${msg}`);
-			this.validated = null;
+			unmark();
 			console.error("[structured-context] Validation error:", e);
 			// Fall through with no result, so the last good decorations do not stay beside the error
 		}
 
 		// A newer validation has started, or the view now shows another note: this result is stale
-		if (run !== this.validationRun || view.file?.path !== file.path) return;
+		if (run !== this.validationRun || view.file?.path !== file.path) {
+			unmark();
+			return;
+		}
 
 		const cmView = (view.editor as unknown as { cm?: EditorView }).cm;
 		if (!cmView) {
-			this.validated = null;
+			unmark();
 			return;
 		}
 
@@ -220,7 +230,7 @@ export default class StructuredContextPlugin extends Plugin {
 		await this.saveData(this.settings);
 		this.refreshConfig();
 		// The open note may now be in a different space, or none
-		this.validated = null;
+		this.validated = new WeakMap();
 		void this.validateActive();
 	}
 }
