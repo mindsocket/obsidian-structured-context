@@ -16,7 +16,7 @@ function isMarkdown(path: string): boolean {
 
 export default class StructuredContextPlugin extends Plugin {
 	settings: PluginSettings;
-	private validator: Validator;
+	private validator = new Validator({ spaces: [] });
 	/** The config in use and where it came from; the settings tab reports it. */
 	resolvedConfig: ResolvedConfig;
 	private debounceTimer: number | null = null;
@@ -79,6 +79,9 @@ export default class StructuredContextPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			const onNoteChange = (file: TAbstractFile, oldPath?: string) => {
 				const changed = [file.path, ...(oldPath === undefined ? [] : [oldPath])].filter(isMarkdown);
+				for (const path of changed) {
+					this.validator.recordChange(join(this.vaultBasePath(), path));
+				}
 				const spaces = new Set(
 					changed.map((path) => this.spaceOfNote(path)).filter((space) => space !== undefined),
 				);
@@ -213,7 +216,7 @@ export default class StructuredContextPlugin extends Plugin {
 	/** Discover the config and use it for validation. */
 	refreshConfig() {
 		this.resolvedConfig = resolveConfig(this.vaultBasePath());
-		this.validator = new Validator(this.resolvedConfig.config);
+		this.validator.updateConfig(this.resolvedConfig.config);
 		if (this.resolvedConfig.error) {
 			this.notifyOnce(`Structured Context config problem: ${this.resolvedConfig.error}`);
 			console.error("[structured-context] Config error:", this.resolvedConfig.error);
