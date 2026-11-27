@@ -1,5 +1,5 @@
-import { sep } from "node:path";
-import { type Config, loadConfig, resolveConfigPath, setConfigPath } from "structured-context/api";
+import { isAbsolute, relative, resolve } from "node:path";
+import { type Config, loadConfig, resolveConfigPath, type SpaceConfig, setConfigPath } from "structured-context/api";
 
 /** Bundled schema given to spaces added without one; structured-context requires an explicit schema. */
 export const DEFAULT_SCHEMA = "strategy_general.json";
@@ -50,9 +50,21 @@ export function resolveConfig(
 	}
 }
 
-function contains(spacePath: string, filePath: string): boolean {
-	const dir = spacePath.endsWith(sep) ? spacePath : `${spacePath}${sep}`;
-	return filePath === spacePath || filePath.startsWith(dir);
+/**
+ * Find the first configured local space whose folder holds `filePath`, returning the space and its
+ * space-relative path. Matches structured-context's `validateFile`.
+ */
+export function resolveVaultFile(config: Config, filePath: string): { space: SpaceConfig; label: string } | null {
+	const absFile = isAbsolute(filePath) ? filePath : resolve(filePath);
+	for (const space of config.spaces) {
+		if (/^https?:\/\//i.test(space.path)) continue;
+		const absSpace = isAbsolute(space.path) ? space.path : resolve(space.path);
+		const rel = relative(absSpace, absFile);
+		if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) {
+			return { space, label: rel.replace(/\\/g, "/") };
+		}
+	}
+	return null;
 }
 
 /**
@@ -60,5 +72,5 @@ function contains(spacePath: string, filePath: string): boolean {
  * space whose folder holds the file. Paths are absolute, as the loaded config's space paths are.
  */
 export function spaceOf(config: Config, filePath: string): string | undefined {
-	return config.spaces.find((space) => contains(space.path, filePath))?.name;
+	return resolveVaultFile(config, filePath)?.space.name;
 }

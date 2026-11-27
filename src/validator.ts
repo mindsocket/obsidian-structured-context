@@ -6,11 +6,11 @@ import {
 	type ReadSpaceResult,
 	readSpace,
 	refreshReadResult,
-	resolveFileSpace,
 	type SpaceContext,
 	validateSpace,
 } from "structured-context/api";
 import type { FileValidationResult } from "structured-context/types";
+import { resolveVaultFile } from "./config-source";
 
 interface SpaceCacheEntry {
 	context: SpaceContext;
@@ -55,7 +55,7 @@ export class Validator {
 	/** Record that a vault file (absolute path) was created, modified, deleted or renamed. */
 	recordChange(filePath: string): void {
 		const absFile = isAbsolute(filePath) ? filePath : resolve(filePath);
-		const match = resolveFileSpace(absFile, this.config);
+		const match = resolveVaultFile(this.config, absFile);
 		if (!match) return;
 		const entry = this.spaces.get(match.space.name);
 		if (!entry) return;
@@ -64,7 +64,7 @@ export class Validator {
 
 	async validate(filePath: string): Promise<FileValidationResult | null> {
 		const absFile = isAbsolute(filePath) ? filePath : resolve(filePath);
-		const match = resolveFileSpace(absFile, this.config);
+		const match = resolveVaultFile(this.config, absFile);
 		if (!match) return null;
 
 		const { space, label } = match;
